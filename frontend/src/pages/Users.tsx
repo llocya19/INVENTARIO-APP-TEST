@@ -14,7 +14,7 @@ type User = {
 };
 
 /* =========================
-   Tema / helpers UI
+   Tema / helpers UI (Turquesa #80F9FA)
 ========================= */
 const BG_APP = "bg-[#FFFDF8]";
 const TEXT = "text-slate-800";
@@ -23,7 +23,7 @@ const MUTED = "text-slate-600";
 const section = "rounded-2xl border border-slate-200 bg-white shadow-sm";
 const baseText = "leading-relaxed tracking-[0.01em]";
 const focusRing =
-  "focus:outline-none focus:ring-2 focus:ring-emerald-300/40 focus:border-emerald-300/60";
+  "focus:outline-none focus:ring-2 focus:ring-[#80F9FA]/50 focus:border-[#80F9FA]/60";
 const fieldBase =
   "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-[15px] placeholder-slate-400 " +
   TEXT +
@@ -40,16 +40,12 @@ function Button({
   variant?: "primary" | "secondary" | "subtle" | "danger";
 }) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[15px] transition min-h-[40px]";
+    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[15px] transition min-h-[40px] font-medium disabled:opacity-50 disabled:cursor-not-allowed";
   const map = {
-    primary:
-      "bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed",
-    secondary:
-      "bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50",
-    subtle:
-      "bg-white/60 border border-slate-200 text-slate-700 hover:bg-white disabled:opacity-50",
-    danger:
-      "bg-rose-600 text-white hover:bg-rose-500 active:bg-rose-700 disabled:opacity-50",
+    primary: "bg-[#80F9FA] text-slate-900 hover:bg-[#6DE2E3] active:bg-[#5FD0D1]",
+    secondary: "bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 active:bg-slate-100",
+    subtle: "bg-[#80F9FA]/10 border border-[#80F9FA]/30 text-slate-700 hover:bg-[#80F9FA]/20",
+    danger: "bg-rose-600 text-white hover:bg-rose-500 active:bg-rose-700",
   };
   return (
     <button className={`${base} ${map[variant]} ${className}`} {...props}>
@@ -63,14 +59,13 @@ function Badge({
   tone = "slate",
 }: {
   children: React.ReactNode;
-  tone?: "slate" | "sky" | "violet" | "amber" | "emerald" | "rose";
+  tone?: "slate" | "turquoise" | "violet" | "amber" | "rose";
 }) {
   const map = {
     slate: "bg-slate-100 text-slate-700",
-    sky: "bg-sky-100 text-sky-700",
+    turquoise: "bg-[#80F9FA]/30 text-[#066B6B]",
     violet: "bg-violet-100 text-violet-700",
     amber: "bg-amber-100 text-amber-800",
-    emerald: "bg-emerald-100 text-emerald-700",
     rose: "bg-rose-100 text-rose-700",
   };
   return (
@@ -157,7 +152,7 @@ export default function Users() {
     username: "",
     password: "",
     rol: "PRACTICANTE" as User["rol"],
-    area_id: "" as string | number, // texto para input
+    area_id: "" as string | number,
   });
 
   // Editar inline (área NO editable)
@@ -178,17 +173,11 @@ export default function Users() {
       const params = q ? { params: { q } } : undefined;
       const r = await http.get("/api/users", params);
 
-      // 🔧 Normalizar (array plano o {items: []})
-      const data = Array.isArray(r.data)
-        ? r.data
-        : Array.isArray(r.data?.items)
-        ? r.data.items
-        : [];
-
+      const data = Array.isArray(r.data) ? r.data : Array.isArray(r.data?.items) ? r.data.items : [];
       setItems(data as User[]);
     } catch (e: any) {
       setMsg(e?.response?.data?.error || "No se pudo cargar usuarios");
-      setItems([]); // deja array vacío para que filtered.map no falle
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -206,7 +195,6 @@ export default function Users() {
     return () => clearTimeout(t);
   }, [ok]);
 
-  // Siempre un array
   const filtered = useMemo<User[]>(() => (Array.isArray(items) ? items : []), [items]);
 
   /* ------------ Crear ------------ */
@@ -241,7 +229,7 @@ export default function Users() {
   /* ------------ Editar (sin área) ------------ */
   const startEdit = (u: User) => {
     setEditId(u.id);
-    setEdit({ rol: u.rol, activo: u.activo, password: "" }); // sin area_id
+    setEdit({ rol: u.rol, activo: u.activo, password: "" });
     setMsg(null);
     setOk(null);
   };
@@ -309,13 +297,12 @@ export default function Users() {
 
   const badgeRol = (rol: User["rol"]) => {
     if (rol === "ADMIN") return <Badge tone="rose">ADMIN</Badge>;
-    if (rol === "USUARIO") return <Badge tone="sky">USUARIO</Badge>;
-    return <Badge>PRACTICANTE</Badge>;
+    if (rol === "USUARIO") return <Badge tone="turquoise">USUARIO</Badge>;
+    return <Badge tone="amber">PRACTICANTE</Badge>;
   };
 
-  const badgeEstado = (a: boolean) => {
-    return a ? <Badge tone="emerald">Activo</Badge> : <Badge tone="slate">Inactivo</Badge>;
-  };
+  const badgeEstado = (a: boolean) =>
+    a ? <Badge tone="turquoise">Activo</Badge> : <Badge tone="slate">Inactivo</Badge>;
 
   /* =========================
      Render
@@ -380,7 +367,11 @@ export default function Users() {
 
         {/* feedback */}
         {msg && <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800">{msg}</div>}
-        {ok && <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800">{ok}</div>}
+        {ok && (
+          <div className="p-3 rounded-xl border border-[#80F9FA]/30 bg-[#80F9FA]/10 text-[#066B6B]">
+            {ok}
+          </div>
+        )}
 
         {/* Crear usuario (card plegable) */}
         <div className={section}>
@@ -546,8 +537,8 @@ export default function Users() {
         <div className={`${section} relative overflow-hidden hidden md:block`}>
           <div className="max-h-[60vh] overflow-auto">
             <table className="w-full text-[14px] table-auto">
-              <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/75 border-b">
-                <tr className="text-left text-slate-600">
+              <thead className="sticky top-0 z-10 bg-[#80F9FA]/10 border-b">
+                <tr className="text-left text-slate-700">
                   <th className="py-2.5 px-3">ID</th>
                   <th className="py-2.5 px-3">Usuario</th>
                   <th className="py-2.5 px-3">Rol</th>
@@ -575,7 +566,7 @@ export default function Users() {
                 )}
 
                 {filtered.map((u) => (
-                  <tr key={u.id} className="border-b last:border-b-0 hover:bg-slate-50/60">
+                  <tr key={u.id} className="border-b last:border-b-0 hover:bg-[#80F9FA]/5">
                     <td className="py-2.5 px-3 whitespace-nowrap">{u.id}</td>
 
                     <td className="py-2.5 px-3 break-all">

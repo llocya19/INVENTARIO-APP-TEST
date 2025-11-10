@@ -4,6 +4,11 @@ import { Link } from "react-router-dom";
 import http from "../api/http";
 import { getUser } from "../services/authService";
 
+// === UI reutilizable ===
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import InlineAlert from "@/components/ui/InlineAlert";
+
 /* =========================
    Tipos
 ========================= */
@@ -23,7 +28,7 @@ const MUTED    = "text-slate-600";
 
 // Contenedores
 const section  = "rounded-2xl border border-slate-200 bg-white shadow-sm";
-const card     = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
+const cardBase = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
 
 // Tipografía/espaciado base
 const baseText = "leading-relaxed tracking-[0.01em]";
@@ -34,22 +39,6 @@ const focusRing =
 const fieldBase =
   "w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-base " +
   "placeholder-slate-400 " + TEXT + " " + focusRing + " transition";
-
-// Botones (mín 44px alto)
-const btnBase =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 " +
-  "text-base " + TEXT + " hover:bg-slate-50 active:bg-slate-100 transition disabled:opacity-50 disabled:cursor-not-allowed " +
-  "min-h-[44px] min-w-[88px]";
-
-const btnPrimary =
-  "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base " +
-  "bg-emerald-600 text-white font-medium hover:bg-emerald-500 active:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed " +
-  "min-h-[44px] min-w-[112px]";
-
-const btnAccent =
-  "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base " +
-  "bg-sky-600 text-white font-medium hover:bg-sky-500 active:bg-sky-700 transition disabled:opacity-50 disabled:cursor-not-allowed " +
-  "min-h-[44px] min-w-[112px]";
 
 // Badges jerarquía
 function Badge({ kind }: { kind: "root" | "child" }) {
@@ -70,7 +59,7 @@ function Badge({ kind }: { kind: "root" | "child" }) {
 // Skeleton
 function SkeletonCard() {
   return (
-    <div className={card + " animate-pulse"}>
+    <div className={cardBase + " animate-pulse"}>
       <div className="h-5 w-2/3 bg-slate-200 rounded mb-2" />
       <div className="h-4 w-28 bg-slate-200 rounded mb-4" />
       <div className="flex gap-2">
@@ -287,36 +276,37 @@ export default function Areas() {
                   onChange={(e)=>setQ(e.target.value)}
                   aria-label="Buscar áreas"
                 />
-                <button className={btnBase + " px-4"} onClick={()=>setQ("")} disabled={!q}>
+                <Button
+                  variant="outline"
+                  onClick={()=>setQ("")}
+                  disabled={!q}
+                  aria-label="Limpiar búsqueda"
+                >
                   Limpiar
-                </button>
+                </Button>
               </div>
-              <button
-                className={
-                  "rounded-xl px-4 py-3 text-base border " +
-                  (onlyRoots
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                    : "border-slate-300 bg-white hover:bg-slate-50")
-                }
+              <Button
+                variant={onlyRoots ? "soft-emerald" : "outline"}
                 onClick={()=>setOnlyRoots(v=>!v)}
                 title="Mostrar solo áreas raíz"
+                aria-pressed={onlyRoots}
               >
                 Solo raíces
-              </button>
+              </Button>
             </div>
           </div>
         </div>
 
         {/* Mensajes */}
         {msg && (
-          <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800">
+          <InlineAlert kind="error">
             {msg}
-          </div>
+          </InlineAlert>
         )}
         {ok && (
-          <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800">
+          <InlineAlert kind="success">
             {ok}
-          </div>
+          </InlineAlert>
         )}
 
         {/* ADMIN: acordeón */}
@@ -334,8 +324,7 @@ export default function Areas() {
             {showForms && (
               <div className="border-t border-slate-200 grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 md:p-5">
                 {/* raíz */}
-                <form onSubmit={createRoot} className={card + " " + baseText}>
-                  <div className="text-base font-medium mb-2">Área raíz (Servicio)</div>
+                <Card title="Área raíz (Servicio)">
                   <label className="block text-sm text-slate-600">
                     Nombre del servicio
                     <input
@@ -349,96 +338,101 @@ export default function Areas() {
                     Usa el nombre oficial del servicio.
                   </p>
                   <div className="mt-3">
-                    <button className={btnPrimary + " w-full sm:w-auto"}>Crear servicio</button>
+                    <form onSubmit={createRoot}>
+                      <Button type="submit" variant="primary">
+                        Crear servicio
+                      </Button>
+                    </form>
                   </div>
-                </form>
+                </Card>
 
                 {/* subárea */}
-                <form onSubmit={createSub} className={card + " " + baseText}>
-                  <div className="text-base font-medium mb-2">Subárea (Ambiente/Unidad)</div>
-
-                  <label className="block text-sm text-slate-600">
-                    Servicio raíz
-                    <select
-                      className={fieldBase + " mt-1"}
-                      value={subRootId}
-                      onChange={(e)=> setSubRootId(e.target.value)}
-                    >
-                      <option value="">Seleccione…</option>
-                      {roots.map(r => (
-                        <option key={r.id} value={r.id}>
-                          {r.nombre} (ID {r.id})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <Card title="Subárea (Ambiente/Unidad)">
+                  <form onSubmit={createSub}>
                     <label className="block text-sm text-slate-600">
-                      Nombre de la subárea
-                      <input
-                        className={fieldBase + " mt-1"}
-                        placeholder='Ej. "Sala de Procedimientos", "Hospitalización A"'
-                        value={subForm.nombre}
-                        onChange={e=>setSubForm({ ...subForm, nombre: e.target.value })}
-                      />
-                    </label>
-
-                    <label className="block text-sm text-slate-600">
-                      Padre dentro del servicio
+                      Servicio raíz
                       <select
                         className={fieldBase + " mt-1"}
-                        value={subForm.padre_id}
-                        onChange={e=>setSubForm({ ...subForm, padre_id: e.target.value })}
-                        disabled={!subRootId}
+                        value={subRootId}
+                        onChange={(e)=> setSubRootId(e.target.value)}
                       >
-                        <option value="">{subRootId ? "Seleccione…" : "Elige un servicio primero"}</option>
-                        {padreOptions.map(opt => (
-                          <option key={opt.id} value={opt.id}>
-                            {`${"— ".repeat(opt.depth)}${opt.nombre}`} {opt.depth===0 ? "(servicio)" : ""}
+                        <option value="">Seleccione…</option>
+                        {roots.map(r => (
+                          <option key={r.id} value={r.id}>
+                            {r.nombre} (ID {r.id})
                           </option>
                         ))}
                       </select>
                     </label>
-                  </div>
 
-                  {/* Vista árbol */}
-                  {subRootId && (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                      <div className="text-sm text-slate-600 mb-2">Estructura del servicio</div>
-                      <ul className="space-y-1 text-[15px] text-slate-800 max-h-44 overflow-auto">
-                        {padreOptions.map(opt => (
-                          <li key={`tree-${opt.id}`}>
-                            <span className={opt.depth===0 ? "font-medium text-emerald-700" : ""}>
-                              {`${"— ".repeat(opt.depth)}${opt.nombre}`}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                      <label className="block text-sm text-slate-600">
+                        Nombre de la subárea
+                        <input
+                          className={fieldBase + " mt-1"}
+                          placeholder='Ej. "Sala de Procedimientos", "Hospitalización A"'
+                          value={subForm.nombre}
+                          onChange={e=>setSubForm({ ...subForm, nombre: e.target.value })}
+                        />
+                      </label>
+
+                      <label className="block text-sm text-slate-600">
+                        Padre dentro del servicio
+                        <select
+                          className={fieldBase + " mt-1"}
+                          value={subForm.padre_id}
+                          onChange={e=>setSubForm({ ...subForm, padre_id: e.target.value })}
+                          disabled={!subRootId}
+                        >
+                          <option value="">{subRootId ? "Seleccione…" : "Elige un servicio primero"}</option>
+                          {padreOptions.map(opt => (
+                            <option key={opt.id} value={opt.id}>
+                              {`${"— ".repeat(opt.depth)}${opt.nombre}`} {opt.depth===0 ? "(servicio)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
-                  )}
 
-                  <div className="mt-3">
-                    <button
-                      className={btnAccent + " w-full sm:w-auto"}
-                      disabled={!subForm.nombre.trim() || !subForm.padre_id}
-                    >
-                      Crear subárea
-                    </button>
-                  </div>
-                </form>
+                    {/* Vista árbol */}
+                    {subRootId && (
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="text-sm text-slate-600 mb-2">Estructura del servicio</div>
+                        <ul className="space-y-1 text-[15px] text-slate-800 max-h-44 overflow-auto">
+                          {padreOptions.map(opt => (
+                            <li key={`tree-${opt.id}`}>
+                              <span className={opt.depth===0 ? "font-medium text-emerald-700" : ""}>
+                                {`${"— ".repeat(opt.depth)}${opt.nombre}`}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="mt-3">
+                      <Button
+                        type="submit"
+                        variant="accent"
+                        disabled={!subForm.nombre.trim() || !subForm.padre_id}
+                      >
+                        Crear subárea
+                      </Button>
+                    </div>
+                  </form>
+                </Card>
               </div>
             )}
           </div>
         )}
 
-        {/* Grid de áreas (sin truncar, auto-fit) */}
+        {/* Grid de áreas */}
         <div className="space-y-4">
           <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
             {loading && Array.from({ length: 8 }).map((_,i)=> <SkeletonCard key={i} />)}
 
             {!loading && pageItems.map(a => (
-              <div key={a.id} className={card + " " + baseText}>
+              <Card key={a.id}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="text-lg font-semibold flex items-center gap-2 whitespace-normal break-words">
@@ -451,23 +445,19 @@ export default function Areas() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 shrink-0">
-                    <button
+                    <Button
+                      variant="outline"
                       onClick={()=>openInfo(a.id)}
-                      className={btnBase}
                       title="Ver información del área"
                     >
                       Info
-                    </button>
-                    <Link
-                      to={`/areas/${a.id}`}
-                      className={btnPrimary}
-                      title="Abrir área"
-                    >
-                      Abrir
+                    </Button>
+                    <Link to={`/areas/${a.id}`} title="Abrir área">
+                      <Button variant="primary">Abrir</Button>
                     </Link>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
 
             {!loading && filtered.length===0 && (
@@ -478,20 +468,28 @@ export default function Areas() {
             )}
           </div>
 
-          {/* Paginación */}
+          {/* Paginación (con botones reutilizables) */}
           {!loading && filtered.length > 0 && (
             <div className={`${section} p-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center ${baseText}`}>
               <div className="text-slate-600">
                 Mostrando {(page - 1) * size + 1}–{Math.min(page * size, filtered.length)} de {filtered.length}
               </div>
               <div className="flex flex-wrap gap-2 items-center justify-start sm:justify-end">
-                <button className={btnBase} disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                <Button
+                  variant="outline"
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                >
                   ◀ Anterior
-                </button>
+                </Button>
                 <span className="text-slate-700 px-2">Página {page} / {totalPages}</span>
-                <button className={btnBase} disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                <Button
+                  variant="outline"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                >
                   Siguiente ▶
-                </button>
+                </Button>
                 <select
                   className={fieldBase + " w-28"}
                   value={size}
@@ -505,13 +503,13 @@ export default function Areas() {
           )}
         </div>
 
-        {/* Modal Info */}
+        {/* Modal Info (mantiene tu lógica, luego lo pasamos a ui/Modal) */}
         {showInfo && (
           <div className="fixed inset-0 bg-black/10 backdrop-blur-[1px] flex items-center justify-center p-4 z-50">
             <div className={section + " w-full max-w-[760px]"}>
               <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                 <div className="font-semibold text-base md:text-lg">Información del área</div>
-                <button onClick={()=>setShowInfo(false)} className={btnBase}>Cerrar</button>
+                <Button variant="outline" onClick={()=>setShowInfo(false)}>Cerrar</Button>
               </div>
 
               <div className="p-4 space-y-4">
@@ -520,17 +518,15 @@ export default function Areas() {
                 ) : (
                   <>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <div className={card + " " + baseText}>
-                        <div className="text-sm text-slate-600">Área</div>
+                      <Card title="Área">
                         <div className="mt-1 font-medium flex items-center gap-2 whitespace-normal break-words">
                           <span className="whitespace-normal break-words">{info.area.nombre}</span>
                           <span className="text-xs text-slate-500">ID {info.area.id}</span>
                           <Badge kind={info.area.padre_id ? "child" : "root"} />
                         </div>
-                      </div>
+                      </Card>
 
-                      <div className={card + " " + baseText}>
-                        <div className="text-sm text-slate-600">Jerarquía (ancestros)</div>
+                      <Card title="Jerarquía (ancestros)">
                         {info.ancestors.length === 0 ? (
                           <div className="text-slate-700 mt-1">— Es servicio raíz —</div>
                         ) : (
@@ -545,34 +541,37 @@ export default function Areas() {
                             ))}
                           </div>
                         )}
-                      </div>
+                      </Card>
                     </div>
 
-                    <div className={card + " " + baseText}>
+                    <Card title="Subáreas directas">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                        <div className="text-sm text-slate-600">Subáreas directas</div>
+                        <div className="text-sm text-slate-600">Listado</div>
                         <div className="flex items-center gap-2">
-                          <button
-                            className={btnBase}
+                          <Button
+                            variant="outline"
                             disabled={subPage <= 1}
                             onClick={() => setSubPage(p => Math.max(1, p - 1))}
+                            aria-label="Página anterior"
                           >
                             ◀
-                          </button>
+                          </Button>
                           <span className="text-sm text-slate-600">
                             Página {subPage} / {subTotalPages}
                           </span>
-                          <button
-                            className={btnBase}
+                          <Button
+                            variant="outline"
                             disabled={subPage >= subTotalPages}
                             onClick={() => setSubPage(p => Math.min(subTotalPages, p + 1))}
+                            aria-label="Página siguiente"
                           >
                             ▶
-                          </button>
+                          </Button>
                           <select
                             className={fieldBase + " w-24"}
                             value={subSize}
                             onChange={(e) => { setSubSize(Number(e.target.value)); setSubPage(1); }}
+                            aria-label="Tamaño de página de subáreas"
                           >
                             {[4, 8, 12, 16].map(n => <option key={n} value={n}>{n} / pág</option>)}
                           </select>
@@ -594,7 +593,7 @@ export default function Areas() {
                           ))}
                         </ul>
                       )}
-                    </div>
+                    </Card>
                   </>
                 )}
               </div>

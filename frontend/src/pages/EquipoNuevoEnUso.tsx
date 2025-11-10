@@ -47,20 +47,23 @@ type AreaItemRow = {
 };
 
 /* =========================
-   Estilos (tema hospital)
+   Estilos (tema hospital + turquesa)
 ========================= */
+const BRAND = "#80F9FA";
 const BG_APP = "bg-[#FFFDF8]";
 const textMuted = "text-slate-600";
 const card = "bg-white rounded-3xl shadow-sm ring-1 ring-slate-200";
 const fieldBase =
-  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-[15px] placeholder-slate-400 " +
-  "focus:outline-none focus:ring-2 focus:ring-emerald-300/50 focus:border-emerald-300 transition";
+  `w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-[15px] placeholder-slate-400
+   focus:outline-none focus:ring-2 focus:ring-[${BRAND}]/50 focus:border-[${BRAND}] transition`;
 const fieldReadOnly = fieldBase + " bg-slate-50 text-slate-700";
 const selectBase = fieldBase + " pr-8";
 const btnBase =
-  "inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm hover:bg-slate-50 active:bg-slate-100 transition";
+  `inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm
+   hover:border-[${BRAND}] hover:bg-[#F0FEFE] active:bg-[#E1FDFD] transition`;
 const btnPrimary =
-  "inline-flex items-center justify-center rounded-xl bg-emerald-600 text-white px-5 py-3 text-sm shadow-sm hover:bg-emerald-500 active:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed";
+  `inline-flex items-center justify-center rounded-xl bg-[${BRAND}] text-slate-800 px-5 py-3 text-sm shadow-sm
+   hover:bg-[#6ee7e9] active:bg-[#4fd4d7] transition disabled:opacity-50 disabled:cursor-not-allowed`;
 
 /* ============ UI: Sheet (drawer/modal) ============ */
 function Sheet({
@@ -528,7 +531,9 @@ export default function EquipoNuevoUso() {
                 <button
                   onClick={() => setStep(n)}
                   className={`w-10 h-10 rounded-full border flex items-center justify-center ${
-                    step === n ? "bg-emerald-600 text-white border-emerald-600" : "bg-white border-slate-300"
+                    step === n
+                      ? `bg-[${BRAND}] text-slate-800 border-[${BRAND}]`
+                      : "bg-white border-slate-300"
                   }`}
                   title={n === 1 ? "Datos" : n === 2 ? "Ítems" : "Revisar"}
                   disabled={isAppend && n === 1}
@@ -1025,7 +1030,7 @@ export default function EquipoNuevoUso() {
                   <button
                     key={a.id}
                     className={`w-full text-left px-3 py-2 rounded-xl border ${
-                      areaSel === a.id ? "bg-emerald-600 text-white border-emerald-600" : "bg-white hover:bg-slate-50 border-slate-300"
+                      areaSel === a.id ? `bg-[${BRAND}] text-slate-800 border-[${BRAND}]` : "bg-white hover:bg-slate-50 border-slate-300"
                     }`}
                     onClick={() => {
                       setAreaSel(a.id);
@@ -1044,7 +1049,7 @@ export default function EquipoNuevoUso() {
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
                   <button
-                    className={`${btnBase} ${borrowClase === "COMPONENTE" ? "bg-emerald-600 text-white border-emerald-600" : ""}`}
+                    className={`${btnBase} ${borrowClase === "COMPONENTE" ? `bg-[${BRAND}] text-slate-800 border-[${BRAND}]` : ""}`}
                     onClick={() => {
                       setBorrowClase("COMPONENTE");
                       if (areaSel) loadAreaItems(areaSel, "COMPONENTE");
@@ -1053,7 +1058,7 @@ export default function EquipoNuevoUso() {
                     Componentes
                   </button>
                   <button
-                    className={`${btnBase} ${borrowClase === "PERIFERICO" ? "bg-emerald-600 text-white border-emerald-600" : ""}`}
+                    className={`${btnBase} ${borrowClase === "PERIFERICO" ? `bg-[${BRAND}] text-slate-800 border-[${BRAND}]` : ""}`}
                     onClick={() => {
                       setBorrowClase("PERIFERICO");
                       if (areaSel) loadAreaItems(areaSel, "PERIFERICO");
@@ -1182,7 +1187,11 @@ function CamSheet({ onClose, onCapture }: { onClose: () => void; onCapture: (f: 
         </div>
         <div className="px-4 py-3 border-t flex items-center justify-between">
           <button className="px-3 py-2 rounded-lg border" onClick={onClose}>Cerrar</button>
-          <button className="px-4 py-2 rounded-lg bg-emerald-600 text-white disabled:opacity-50" disabled={!ready} onClick={capture}>
+          <button
+            className="px-4 py-2 rounded-lg bg-[#80F9FA] text-slate-800 hover:bg-[#6ee7e9] active:bg-[#4fd4d7] disabled:opacity-50"
+            disabled={!ready}
+            onClick={capture}
+          >
             Tomar foto
           </button>
         </div>

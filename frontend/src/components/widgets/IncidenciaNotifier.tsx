@@ -1,85 +1,21 @@
-// src/components/IncidenciaNotifier.tsx
+// src/components/widgets/IncidenciaNotifier.tsx
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchUpdates } from "../api/incidencias";
-import { getUser } from "../services/authService";
+import { fetchUpdates, type UpdateItem } from "@/api/incidencias";
+import { getUser } from "@/services/authService";
 
-const LS_LAST       = "incfeed.last_id.v2";
-const LS_PRIMED_AT  = "incfeed.primed_at.v2";
-const LS_LEADER_KEY = "incfeed.leader.v1"; // { id, until }
-const CH_NAME       = "incfeed.channel.v1";
-
-const HEARTBEAT_MS  = 4000; // cada cuánto renueva el líder su lock
-const LOCK_TTL_MS   = 7000; // si pasan 7s sin heartbeat, se asume libre
-const BASE_POLL_MS  = 1500; // igual que antes
+const HEARTBEAT_MS = 4000;
+const LOCK_TTL_MS  = 7000;
+const BASE_POLL_MS = 1500;
 
 type BroadcastMsg =
   | { type: "prime"; last_id: number }
-  | { type: "updates"; items: any[]; last_id: number }
+  | { type: "updates"; items: UpdateItem[]; last_id: number }
   | { type: "leader:claimed"; id: string }
   | { type: "leader:released"; id: string };
 
-function readLast(): number {
-  try { return Number(localStorage.getItem(LS_LAST) || "0"); } catch { return 0; }
-}
-function writeLast(v: number) {
-  try { localStorage.setItem(LS_LAST, String(v)); } catch {}
-}
-function primed() { return !!localStorage.getItem(LS_PRIMED_AT); }
-function writePrimed() {
-  try { localStorage.setItem(LS_PRIMED_AT, new Date().toISOString()); } catch {}
-}
-
-function now() { return Date.now(); }
-function newTabId() { return crypto?.randomUUID?.() || String(Math.random()); }
-
-function readLeader(): { id: string; until: number } | null {
-  try {
-    const raw = localStorage.getItem(LS_LEADER_KEY);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (!obj || typeof obj.until !== "number") return null;
-    return obj;
-  } catch { return null; }
-}
-
-function tryBecomeLeader(myId: string): boolean {
-  // intento: si no hay líder o está expirado, me postulo
-  const current = readLeader();
-  const expired = !current || current.until < now();
-  if (!expired) return false;
-  const candidate = { id: myId, until: now() + LOCK_TTL_MS };
-  localStorage.setItem(LS_LEADER_KEY, JSON.stringify(candidate));
-  // confirmar que yo quedé
-  const after = readLeader();
-  return !!after && after.id === myId;
-}
-
-function refreshLeader(myId: string) {
-  const current = readLeader();
-  if (!current || current.id !== myId) return false;
-  const refreshed = { id: myId, until: now() + LOCK_TTL_MS };
-  localStorage.setItem(LS_LEADER_KEY, JSON.stringify(refreshed));
-  return true;
-}
-
-function releaseLeader(myId: string) {
-  const current = readLeader();
-  if (current && current.id === myId) {
-    localStorage.removeItem(LS_LEADER_KEY);
-  }
-}
-
 function Bubble({
-  title,
-  subtitle,
-  onClick,
-  onClose,
-}: {
-  title: string;
-  subtitle?: string;
-  onClick: () => void;
-  onClose: () => void;
-}) {
+  title, subtitle, onClick, onClose,
+}: { title: string; subtitle?: string; onClick: () => void; onClose: () => void; }) {
   return (
     <div className="fixed right-4 bottom-4 z-[60] animate-[fadeIn_.15s_ease-out]">
       <div className="bg-white/95 backdrop-blur rounded-2xl shadow-lg ring-1 ring-slate-200 w-[320px] overflow-hidden">
@@ -111,21 +47,63 @@ function Bubble({
 export default function IncidenciaNotifier({
   pollMs = BASE_POLL_MS,
   onOpenIncidencia,
-}: {
-  pollMs?: number;
-  onOpenIncidencia?: (id: number) => void;
-}) {
+}: { pollMs?: number; onOpenIncidencia?: (id: number) => void; }) {
   const me = getUser();
   const myUser = (me?.username || "").toLowerCase();
-  const rol = me?.rol || "USUARIO";
+  const rol = (me?.rol || "USUARIO").toUpperCase();
   const isUser = rol === "USUARIO";
+
+  // keys por usuario/rol (evita mezclar sesiones)
+  const LS_LAST      = `incfeed.last_id.v3:${myUser}:${rol}`;
+  const LS_PRIMED_AT = `incfeed.primed_at.v3:${myUser}:${rol}`;
+  const LS_LEADER    = `incfeed.leader.v1:${myUser}:${rol}`;
+  const CH_NAME      = `incfeed.channel.v1:${myUser}:${rol}`;
+
+  const readLast = () => { try { return Number(localStorage.getItem(LS_LAST) || "0"); } catch { return 0; } };
+  const writeLast = (v: number) => { try { localStorage.setItem(LS_LAST, String(v)); } catch {} };
+  const primed = () => !!localStorage.getItem(LS_PRIMED_AT);
+  const writePrimed = () => { try { localStorage.setItem(LS_PRIMED_AT, new Date().toISOString()); } catch {} };
+
+  const now = () => Date.now();
+  const newTabId = () => (crypto?.randomUUID?.() || String(Math.random()));
+
+  const readLeader = () => {
+    try {
+      const raw = localStorage.getItem(LS_LEADER);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj.until !== "number") return null;
+      return obj as { id: string; until: number };
+    } catch { return null; }
+  };
+  const tryBecomeLeader = (myId: string) => {
+    const current = readLeader();
+    const expired = !current || current.until < now();
+    if (!expired) return false;
+    const candidate = { id: myId, until: now() + LOCK_TTL_MS };
+    localStorage.setItem(LS_LEADER, JSON.stringify(candidate));
+    const after = readLeader();
+    return !!after && after.id === myId;
+  };
+  const refreshLeader = (myId: string) => {
+    const current = readLeader();
+    if (!current || current.id !== myId) return false;
+    const refreshed = { id: myId, until: now() + LOCK_TTL_MS };
+    localStorage.setItem(LS_LEADER, JSON.stringify(refreshed));
+    return true;
+  };
+  const releaseLeader = (myId: string) => {
+    const current = readLeader();
+    if (current && current.id === myId) {
+      localStorage.removeItem(LS_LEADER);
+    }
+  };
 
   const [toast, setToast] = useState<{ id: number; titulo: string; preview?: string } | null>(null);
 
   const lastIdRef = useRef<number>(readLast());
   const busyRef   = useRef(false);
 
-  // Liderazgo
   const tabIdRef    = useRef<string>(newTabId());
   const isLeaderRef = useRef<boolean>(false);
   const bcRef       = useRef<BroadcastChannel | null>(null);
@@ -137,32 +115,44 @@ export default function IncidenciaNotifier({
     lastIdRef.current = r.last_id || 0;
     writeLast(lastIdRef.current);
     writePrimed();
-    // comparte prime con otras pestañas
     bcRef.current?.postMessage({ type: "prime", last_id: lastIdRef.current } as BroadcastMsg);
   }, []);
 
-  const handleIncoming = useCallback((items: any[], last_id: number) => {
+  // Elegir item relevante según rol
+  const pickItemForMe = useCallback((items: UpdateItem[]) => {
+    for (const it of items) {
+      if (typeof it.msg_id === "number" && it.msg_id <= (lastIdRef.current || 0)) continue;
+      if ((it.usuario || "").toLowerCase() === myUser) continue;
+
+      if (isUser) {
+        if (it.type === "MSG" && it.visibilidad === "PUBLIC") return it;
+        continue;
+      }
+      if (it.type === "MSG") return it;
+      if (rol === "ADMIN" && it.type === "NEW_INC") return it;
+      if (rol === "PRACTICANTE" && it.type === "ASSIGNED") return it;
+    }
+    return null;
+  }, [isUser, myUser, rol]);
+
+  const handleIncoming = useCallback((items: UpdateItem[], last_id: number) => {
     if (items?.length) {
-      const first = items.find((it: any) => {
-        if ((it.usuario || "").toLowerCase() === myUser) return false;
-        if (isUser && it.solo_staff) return false;
-        return true;
-      });
+      const first = pickItemForMe(items);
       if (first) {
-        setToast({
-          id: first.inc_id,
-          titulo: `Nueva respuesta en #${first.inc_id} · ${first.titulo}`,
-          preview: (first.mensaje || "").slice(0, 120),
-        });
+        const title =
+          first.type === "NEW_INC" ? `Nueva incidencia #${first.inc_id} · ${first.titulo}` :
+          first.type === "ASSIGNED" ? `Te asignaron #${first.inc_id} · ${first.titulo}` :
+          `Nueva respuesta en #${first.inc_id} · ${first.titulo}`;
+        setToast({ id: first.inc_id, titulo: title, preview: (first.mensaje || "").slice(0, 120) });
       }
     }
     if (typeof last_id === "number" && last_id > (lastIdRef.current || 0)) {
       lastIdRef.current = last_id;
       writeLast(lastIdRef.current);
     }
-  }, [isUser, myUser]);
+  }, [pickItemForMe]);
 
-  // Poll (sólo si soy líder)
+  // Poll (solo si soy líder)
   const tick = useCallback(async () => {
     if (!isLeaderRef.current) return;
     if (busyRef.current) return;
@@ -170,24 +160,18 @@ export default function IncidenciaNotifier({
     try {
       const r = await fetchUpdates(lastIdRef.current || 0);
       if ((r.items?.length ?? 0) > 0 || (typeof r.last_id === "number" && r.last_id > lastIdRef.current)) {
-        // Notifica a TODAS las pestañas (incluida esta)
         bcRef.current?.postMessage({ type: "updates", items: r.items || [], last_id: r.last_id || lastIdRef.current } as BroadcastMsg);
-        // Aplica localmente
         handleIncoming(r.items || [], r.last_id || lastIdRef.current);
       }
-    } catch {
-      /* ignore */
     } finally {
       busyRef.current = false;
     }
   }, [handleIncoming]);
 
   useEffect(() => {
-    // init canal
     const bc = new BroadcastChannel(CH_NAME);
     bcRef.current = bc;
 
-    // Escuchar mensajes de otras pestañas
     const onMsg = (ev: MessageEvent<BroadcastMsg>) => {
       const msg = ev.data;
       if (!msg || typeof msg !== "object") return;
@@ -195,7 +179,6 @@ export default function IncidenciaNotifier({
         handleIncoming(msg.items || [], msg.last_id || 0);
       } else if (msg.type === "prime") {
         if (!primed()) {
-          // si yo aún no primeé pero otra pestaña sí, usa su last_id
           lastIdRef.current = msg.last_id || lastIdRef.current;
           writeLast(lastIdRef.current);
           writePrimed();
@@ -204,7 +187,6 @@ export default function IncidenciaNotifier({
     };
     bc.addEventListener("message", onMsg as any);
 
-    // Leader election loop
     const claimLeader = () => {
       if (isLeaderRef.current) return;
       if (tryBecomeLeader(tabIdRef.current)) {
@@ -220,46 +202,30 @@ export default function IncidenciaNotifier({
       }
     };
 
-    // Primer intento de liderazgo
     claimLeader();
 
-    // Heartbeat / renovación (si soy líder)
     const hb = setInterval(() => {
       if (isLeaderRef.current) {
-        if (!refreshLeader(tabIdRef.current)) {
-          // perdí el lock
-          isLeaderRef.current = false;
-        }
+        if (!refreshLeader(tabIdRef.current)) isLeaderRef.current = false;
       } else {
-        // intentar robar el liderazgo si expiró
         claimLeader();
       }
     }, HEARTBEAT_MS);
 
-    // Prime una sola vez
     prime().catch(() => {});
-
-    // Polling: si soy líder, hago tick; si no, me quedo escuchando el canal
     const base = setInterval(() => {
-      if (document.visibilityState === "hidden") return; // ahorro
+      if (document.visibilityState === "hidden") return;
       tick().catch(() => {});
     }, pollMs);
 
-    const onVisibility = () => {
-      // el líder puede acelerar un poco con foco; aquí mantenemos simple
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-
-    // Limpieza
     return () => {
       clearInterval(base);
       clearInterval(hb);
-      document.removeEventListener("visibilitychange", onVisibility);
-      release(); // suelta el liderazgo si lo tenías
+      release();
       bc.removeEventListener("message", onMsg as any);
       bc.close();
     };
-  }, [pollMs, prime, tick, handleIncoming]);
+  }, [CH_NAME, LS_LEADER, pollMs, prime, tick, handleIncoming]);
 
   const open = () => {
     const id = toast?.id;
@@ -268,11 +234,6 @@ export default function IncidenciaNotifier({
   };
 
   return toast ? (
-    <Bubble
-      title={toast.titulo}
-      subtitle={toast.preview}
-      onClick={open}
-      onClose={() => setToast(null)}
-    />
+    <Bubble title={toast.titulo} subtitle={toast.preview} onClick={open} onClose={() => setToast(null)} />
   ) : null;
 }

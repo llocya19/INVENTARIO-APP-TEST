@@ -4,6 +4,15 @@ import { useNavigate } from "react-router-dom";
 import http from "../api/http";
 import type { JSX } from "react/jsx-runtime";
 
+// UI unificada
+import Button from "../components/ui/Button";
+import {
+  container,
+  surfaceSection,
+  surfaceCard,
+  fieldBase as fieldBaseToken,
+} from "../components/ui/tokens";
+
 /* =========================
    Tipos
 ========================= */
@@ -33,22 +42,11 @@ type Fuente = "mov" | "audit" | "both";
 /* =========================
    Tema / helpers UI
 ========================= */
-const BG_APP = "bg-[#FFFDF8]";
+const BG_APP = "bg-[#FFFCF3]";
 const TEXT = "text-slate-800";
 const MUTED = "text-slate-600";
-
-const section = "rounded-2xl border border-slate-200 bg-white shadow-sm";
-const card = section + " p-4 md:p-5";
 const baseText = "leading-relaxed tracking-[0.01em]";
-
-const focusRing =
-  "focus:outline-none focus:ring-2 focus:ring-emerald-300/40 focus:border-emerald-300/60";
-const fieldBase =
-  "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-[15px] placeholder-slate-400 " +
-  TEXT +
-  " " +
-  focusRing +
-  " transition";
+const fieldBase = `${fieldBaseToken} text-[15px]`;
 
 function Icon({
   name,
@@ -124,33 +122,6 @@ function Icon({
     ),
   };
   return map[name];
-}
-
-function Button({
-  children,
-  variant = "primary",
-  className = "",
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "subtle" | "danger";
-}) {
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[15px] transition min-h-[40px]";
-  const map = {
-    primary:
-      "bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed",
-    secondary:
-      "bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50",
-    subtle:
-      "bg-white/60 border border-slate-200 text-slate-700 hover:bg-white disabled:opacity-50",
-    danger:
-      "bg-rose-600 text-white hover:bg-rose-500 active:bg-rose-700 disabled:opacity-50",
-  };
-  return (
-    <button className={`${base} ${map[variant]} ${className}`} {...props}>
-      {children}
-    </button>
-  );
 }
 
 function Badge({
@@ -290,9 +261,9 @@ export default function AuditoriasPage() {
 
   return (
     <div className={`${BG_APP} ${TEXT} min-h-[calc(100vh-64px)]`}>
-      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-5 space-y-5">
+      <div className={`${container} py-5 space-y-5`}>
         {/* App bar */}
-        <div className={`${section} px-4 py-4 md:px-6 md:py-5 ${baseText}`}>
+        <div className={`${surfaceSection} px-4 py-4 md:px-6 md:py-5 ${baseText}`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <Button
@@ -320,37 +291,43 @@ export default function AuditoriasPage() {
         </div>
 
         {/* Filtros */}
-        <div className={card + " " + baseText}>
+        <div className={`${surfaceCard} p-4 md:p-5 ${baseText}`}>
           <div className="flex items-center gap-2 mb-3 text-slate-700">
             <Icon name="filter" />
             <span className="text-sm font-medium">Filtros</span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-            {/* Fuente - segmented */}
+            {/* Fuente - segmented (turquesa) */}
             <div className="lg:col-span-4">
               <div className={MUTED + " text-sm mb-1"}>Fuente</div>
-              <div className="inline-flex rounded-xl border border-slate-300 overflow-hidden">
+              <div className="inline-flex rounded-xl overflow-hidden border border-[#80F9FA] divide-x divide-[#80F9FA]">
                 <button
                   onClick={() => setFuente("both")}
-                  className={`px-4 py-2 text-[15px] ${
-                    fuente === "both" ? "bg-slate-900 text-white" : "bg-white hover:bg-slate-50"
+                  className={`px-4 py-2 text-[15px] transition ${
+                    fuente === "both"
+                      ? "bg-[#80F9FA] text-slate-900 hover:bg-[#6DE2E3] active:bg-[#5FD0D1]"
+                      : "bg-white text-slate-800 hover:bg-[#E0FEFF]"
                   }`}
                 >
                   Mov + Audit
                 </button>
                 <button
                   onClick={() => setFuente("mov")}
-                  className={`px-4 py-2 text-[15px] ${
-                    fuente === "mov" ? "bg-slate-900 text-white" : "bg-white hover:bg-slate-50"
+                  className={`px-4 py-2 text-[15px] transition ${
+                    fuente === "mov"
+                      ? "bg-[#80F9FA] text-slate-900 hover:bg-[#6DE2E3] active:bg-[#5FD0D1]"
+                      : "bg-white text-slate-800 hover:bg-[#E0FEFF]"
                   }`}
                 >
                   Solo Mov
                 </button>
                 <button
                   onClick={() => setFuente("audit")}
-                  className={`px-4 py-2 text-[15px] ${
-                    fuente === "audit" ? "bg-slate-900 text-white" : "bg-white hover:bg-slate-50"
+                  className={`px-4 py-2 text-[15px] transition ${
+                    fuente === "audit"
+                      ? "bg-[#80F9FA] text-slate-900 hover:bg-[#6DE2E3] active:bg-[#5FD0D1]"
+                      : "bg-white text-slate-800 hover:bg-[#E0FEFF]"
                   }`}
                 >
                   Solo Audit
@@ -455,7 +432,7 @@ export default function AuditoriasPage() {
                   Aplicar
                 </Button>
                 <Button
-                  variant="subtle"
+                  variant="outline"
                   onClick={() => {
                     limpiar();
                     load(1, page.size);
@@ -481,7 +458,7 @@ export default function AuditoriasPage() {
           {page.items.map((r) => {
             const tone = toneByMovTipo(r.mov_tipo);
             return (
-              <div key={`${r.mov_id}-${r.es_audit ? "A" : "M"}`} className={section + " p-3"}>
+              <div key={`${r.mov_id}-${r.es_audit ? "A" : "M"}`} className={`${surfaceSection} p-3`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm text-slate-500">{formatDT(r.mov_fecha)}</div>
@@ -538,7 +515,7 @@ export default function AuditoriasPage() {
         </div>
 
         {/* ======= Tabla Desktop ======= */}
-        <div className={section + " overflow-x-auto hidden md:block"}>
+        <div className={`${surfaceSection} overflow-x-auto hidden md:block`}>
           <table className="min-w-full table-fixed">
             <colgroup>
               <col className="w-[160px]" />
@@ -683,10 +660,7 @@ export default function AuditoriasPage() {
           >
             {/* En móvil: fullscreen; en md+: caja centrada */}
             <div
-              className={
-                section +
-                " w-full h-full md:h-auto md:max-w-3xl md:w-full md:rounded-2xl overflow-hidden flex flex-col"
-              }
+              className={`${surfaceSection} w-full h-full md:h-auto md:max-w-3xl md:w-full md:rounded-2xl overflow-hidden flex flex-col`}
             >
               {/* Header fijo */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -745,31 +719,21 @@ function TablePager({
   onPage: (p: number) => void;
   onSize: (s: number) => void;
 }) {
-  const focusRing =
-    "focus:outline-none focus:ring-2 focus:ring-emerald-300/40 focus:border-emerald-300/60";
   return (
     <div className="flex flex-wrap gap-3 items-center justify-between p-3 border-t border-slate-200 bg-white">
       <div className="text-sm text-slate-600">Total: {total.toLocaleString()}</div>
       <div className="flex items-center gap-2">
-        <button
-          className={`rounded-xl border border-slate-300 bg-white px-3 py-2 text-[15px] text-slate-800 hover:bg-slate-50 disabled:opacity-50 ${focusRing}`}
-          disabled={page <= 1}
-          onClick={() => onPage(page - 1)}
-        >
+        <Button variant="secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
           <Icon name="chevL" />
-        </button>
+        </Button>
         <span className="text-sm">
           Página {page} / {totalPages}
         </span>
-        <button
-          className={`rounded-xl border border-slate-300 bg-white px-3 py-2 text-[15px] text-slate-800 hover:bg-slate-50 disabled:opacity-50 ${focusRing}`}
-          disabled={page >= totalPages}
-          onClick={() => onPage(page + 1)}
-        >
+        <Button variant="secondary" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>
           <Icon name="chevR" />
-        </button>
+        </Button>
         <select
-          className={`rounded-xl border border-slate-300 bg-white px-3 py-2 text-[15px] ml-2 ${focusRing}`}
+          className={`${fieldBase} ml-2 w-28 py-2`}
           value={size}
           onChange={(e) => onSize(Number(e.target.value))}
           aria-label="Tamaño de página"

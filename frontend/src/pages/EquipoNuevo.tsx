@@ -18,7 +18,7 @@ type ItemRow = {
 type ItemsPage = { items: ItemRow[]; total: number; page: number; size: number };
 
 /* =========================
-   Tema Hospital – Crema + Blanco (Tailwind)
+   Tema Hospital – Crema + Blanco (Tailwind) con turquesa
 ========================= */
 const BG_APP = "bg-[#FFFDF8]";
 const TEXT = "text-slate-800";
@@ -29,7 +29,7 @@ const card = section + " p-4 md:p-5";
 const baseText = "leading-relaxed tracking-[0.01em]";
 
 const focusRing =
-  "focus:outline-none focus:ring-2 focus:ring-emerald-300/40 focus:border-emerald-300/60";
+  "focus:outline-none focus:ring-2 focus:ring-[#80F9FA]/40 focus:border-[#80F9FA]/60";
 const fieldBase =
   "w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-base placeholder-slate-400 " +
   TEXT +
@@ -42,11 +42,11 @@ const btnBase =
   TEXT +
   " hover:bg-slate-50 active:bg-slate-100 transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[88px]";
 const btnPrimary =
-  "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base bg-emerald-600 text-white font-medium hover:bg-emerald-500 active:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[112px]";
+  "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base bg-[#80F9FA] text-slate-900 font-medium shadow-sm hover:bg-[#6DE2E3] active:bg-[#5FD0D1] transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[112px]";
 
-/* Pill VERDE para contador */
+/* Pill turquesa para contador */
 const pill =
-  "inline-flex items-center justify-center rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-3 py-1.5";
+  "inline-flex items-center justify-center rounded-full bg-[#80F9FA] text-slate-900 text-sm px-3 py-1.5 shadow-sm hover:bg-[#6DE2E3]";
 
 /* =========================
    UI helpers
@@ -241,13 +241,13 @@ export default function EquipoNuevo() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h1 className="text-[22px] md:text-[26px] font-semibold">
-                Nuevo equipo <span className="text-emerald-600">•</span>{" "}
+                Nuevo equipo <span className="text-[#80F9FA]">•</span>{" "}
                 <span className="font-normal text-slate-500">desde Almacén</span>
               </h1>
               <div className={MUTED + " text-sm"}>Área ID {aid}</div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-emerald-700 text-sm">Seleccionados</span>
+              <span className="text-slate-700 text-sm">Seleccionados</span>
               <button className={pill} onClick={() => setOpenDrawer(true)} title="Ver seleccionados">
                 {totalSelected}
               </button>
@@ -257,7 +257,7 @@ export default function EquipoNuevo() {
 
         {/* Mensajes */}
         {msg && <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800">{msg}</div>}
-        {ok && <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800">{ok}</div>}
+        {ok && <div className="p-3 rounded-xl border border-emerald-200 bg-[#E6FFFE] text-slate-900">{ok}</div>}
 
         {/* Meta equipo */}
         <div className={card + " " + baseText}>

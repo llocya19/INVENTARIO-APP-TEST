@@ -8,22 +8,24 @@ import {
   type Incidencia,
 } from "../api/incidencias";
 import { getProfile, updateEmail } from "../api/profile";
-import IncidenciaNotifier from "../components/IncidenciaNotifier";
+import IncidenciaNotifier from "@/components/widgets/IncidenciaNotifier";
 
+/* ====== Tokens visuales ====== */
 const section = "rounded-2xl border border-slate-200 bg-white shadow-sm";
 const fieldBase =
-  "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-[15px] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-300/40 focus:border-emerald-300/60 transition";
+  "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-[15px] placeholder-slate-400 " +
+  "focus:outline-none focus:ring-2 focus:ring-[#80F9FA]/40 focus:border-[#80F9FA]/60 transition";
+
+/* Botón con tema turquesa */
 function Button(
   props: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" }
 ) {
   const { variant = "primary", className = "", ...rest } = props;
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[15px] transition min-h-[40px]";
+    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[15px] transition min-h-[40px] font-medium disabled:opacity-50 disabled:cursor-not-allowed";
   const map = {
-    primary:
-      "bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50",
-    secondary:
-      "bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50",
+    primary: "bg-[#80F9FA] text-slate-900 hover:bg-[#6DE2E3] active:bg-[#5FD0D1] shadow-sm",
+    secondary: "bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 active:bg-slate-100",
   };
   return <button className={`${base} ${map[variant]} ${className}`} {...rest} />;
 }
@@ -73,8 +75,13 @@ export default function MisIncidencias() {
     } catch {}
   }
 
-  useEffect(() => { load(); }, [page]); // eslint-disable-line
-  useEffect(() => { loadProfile(); }, []);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+  useEffect(() => {
+    loadProfile();
+  }, []);
 
   async function saveEmail() {
     if (!email || !email.includes("@")) {
@@ -106,7 +113,9 @@ export default function MisIncidencias() {
         equipo_id: equipoId ? Number(equipoId) : undefined,
       });
       setShowNew(false);
-      setTitulo(""); setDesc(""); setEquipoId("");
+      setTitulo("");
+      setDesc("");
+      setEquipoId("");
       await load();
       setMsg("Incidencia creada correctamente.");
     } catch (e: any) {
@@ -128,13 +137,17 @@ export default function MisIncidencias() {
       setNote("");
       await open(sel.inc_id);
       // dispara evento para que otros tabs/vistas refresquen si corresponde
-      window.dispatchEvent(new CustomEvent("inc:new_msg", { detail: { inc_id: sel.inc_id, created_at: new Date().toISOString() } }));
+      window.dispatchEvent(
+        new CustomEvent("inc:new_msg", {
+          detail: { inc_id: sel.inc_id, created_at: new Date().toISOString() },
+        })
+      );
     } finally {
       setSending(false);
     }
   }
 
-  // === Si llega un evento de mensaje nuevo y este modal está abierto, refresca ===
+  // refresca si llega un nuevo mensaje del mismo hilo
   useEffect(() => {
     const handler = (ev: Event) => {
       const e = ev as CustomEvent<{ inc_id: number }>;
@@ -169,13 +182,21 @@ export default function MisIncidencias() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <Button onClick={saveEmail} disabled={savingMail}>{savingMail ? "Guardando…" : "Guardar"}</Button>
+            <Button onClick={saveEmail} disabled={savingMail}>
+              {savingMail ? "Guardando…" : "Guardar"}
+            </Button>
           </div>
-          <div className="text-xs text-slate-600 mt-1">Solo se pide la primera vez. Luego podrás editarlo en Perfil.</div>
+          <div className="text-xs text-slate-600 mt-1">
+            Solo se pide la primera vez. Luego podrás editarlo en Perfil.
+          </div>
         </div>
       )}
 
-      {msg && <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800">{msg}</div>}
+      {msg && (
+        <div className="p-3 rounded-xl border border-[#80F9FA]/30 bg-[#80F9FA]/10 text-[#066B6B]">
+          {msg}
+        </div>
+      )}
 
       <div className={section}>
         <div className="divide-y">
@@ -190,7 +211,10 @@ export default function MisIncidencias() {
             <div className="p-6 text-center text-slate-500">Aún no tienes incidencias.</div>
           ) : (
             rows.map((r) => (
-              <div key={r.inc_id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/60">
+              <div
+                key={r.inc_id}
+                className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/60"
+              >
                 <div className="min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
                     <div className="font-medium truncate">{r.titulo}</div>
@@ -202,7 +226,9 @@ export default function MisIncidencias() {
                     #{r.inc_id} · {r.equipo_codigo || "sin equipo"}
                   </div>
                 </div>
-                <Button variant="secondary" onClick={() => open(r.inc_id)}>Ver</Button>
+                <Button variant="secondary" onClick={() => open(r.inc_id)}>
+                  Ver
+                </Button>
               </div>
             ))
           )}
@@ -210,10 +236,24 @@ export default function MisIncidencias() {
 
         {totalPages > 1 && (
           <div className="p-3 border-t flex items-center justify-between text-sm">
-            <span>Página {page} de {totalPages}</span>
+            <span>
+              Página {page} de {totalPages}
+            </span>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>«</Button>
-              <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>»</Button>
+              <Button
+                variant="secondary"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                «
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                »
+              </Button>
             </div>
           </div>
         )}
@@ -231,7 +271,12 @@ export default function MisIncidencias() {
               </div>
               <div>
                 <div className="text-slate-600 text-sm mb-1">Descripción</div>
-                <textarea className={fieldBase} rows={5} value={desc} onChange={(e) => setDesc(e.target.value)} />
+                <textarea
+                  className={fieldBase}
+                  rows={5}
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                />
               </div>
               <div>
                 <div className="text-slate-600 text-sm mb-1">Equipo (opcional, id)</div>
@@ -243,7 +288,9 @@ export default function MisIncidencias() {
               </div>
             </div>
             <div className="px-4 py-3 border-t flex items-center justify-end gap-2">
-              <Button variant="secondary" onClick={() => setShowNew(false)}>Cancelar</Button>
+              <Button variant="secondary" onClick={() => setShowNew(false)}>
+                Cancelar
+              </Button>
               <Button onClick={crear}>Crear</Button>
             </div>
           </div>
@@ -257,9 +304,13 @@ export default function MisIncidencias() {
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="font-semibold">Incidencia #{sel.inc_id}</div>
-                <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] bg-slate-100 text-slate-700">{sel.estado}</span>
+                <span className="inline-flex rounded-full px-2 py-0.5 text-[11px] bg-slate-100 text-slate-700">
+                  {sel.estado}
+                </span>
               </div>
-              <Button variant="secondary" onClick={() => setSel(null)}>Cerrar</Button>
+              <Button variant="secondary" onClick={() => setSel(null)}>
+                Cerrar
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-0 md:gap-4 p-4 md:p-5">
@@ -309,7 +360,9 @@ export default function MisIncidencias() {
                     onChange={(e) => setNote(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && addNote()}
                   />
-                  <Button onClick={addNote} disabled={sending}>{sending ? "Enviando…" : "Enviar"}</Button>
+                  <Button onClick={addNote} disabled={sending}>
+                    {sending ? "Enviando…" : "Enviar"}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -318,7 +371,7 @@ export default function MisIncidencias() {
       )}
 
       {/* Notificador global: muestra burbuja y permite abrir el chat */}
-      <IncidenciaNotifier onOpenIncidencia={(id) => open(id)} />
+      <IncidenciaNotifier onOpenIncidencia={(id: number) => open(id)} />
     </div>
   );
 }

@@ -10,25 +10,30 @@ import {
 } from "../api/incidencias";
 import http from "../api/http";
 import { getUser } from "../services/authService";
-import IncidenciaNotifier from "../components/IncidenciaNotifier";
+import IncidenciaNotifier from "@/components/widgets/IncidenciaNotifier";
 
 /* UI tokens */
+const BRAND = "#80F9FA";
 const card = "bg-white rounded-2xl shadow-sm ring-1 ring-slate-200";
 const pad = "p-4 md:p-5";
 const fieldBase =
-  "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition";
+  `w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400
+   focus:outline-none focus:ring-2 focus:ring-[${BRAND}]/40 focus:border-[${BRAND}] transition`;
 const selectBase = fieldBase + " pr-8";
 const btnBase =
-  "inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 active:bg-slate-100 transition";
+  `inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm
+   hover:border-[${BRAND}] hover:bg-[#F0FEFE] active:bg-[#E1FDFD] transition`;
 const btnPrimary =
-  "inline-flex items-center justify-center rounded-xl bg-emerald-600 text-white px-4 py-2 text-sm shadow-sm hover:bg-emerald-500 active:bg-emerald-600 transition disabled:opacity-50 disabled:cursor-not-allowed";
+  `inline-flex items-center justify-center rounded-xl bg-[${BRAND}] text-slate-800 px-4 py-2 text-sm shadow-sm
+   hover:bg-[#6ee7e9] active:bg-[#4fd4d7] transition disabled:opacity-50 disabled:cursor-not-allowed`;
 
 function BadgeEstado({ value }: { value?: string }) {
   const v = (value || "").toUpperCase();
   const map: Record<string, string> = {
     ABIERTA: "bg-rose-100 text-rose-700",
     EN_PROCESO: "bg-amber-100 text-amber-800",
-    CERRADA: "bg-emerald-100 text-emerald-700",
+    // turquesa para CERRADA
+    CERRADA: "bg-[#E6FEFF] text-slate-800",
   };
   const cls = map[v] || "bg-slate-100 text-slate-700";
   return <span className={`text-[11px] px-2 py-0.5 rounded-full ${cls}`}>{v || "—"}</span>;
@@ -182,7 +187,11 @@ export default function IncidenciasAdmin() {
         </div>
       </div>
 
-      {msg && <div className="p-3 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200">{msg}</div>}
+      {msg && (
+        <div className={`p-3 rounded-xl bg-[#E6FEFF] text-slate-800 ring-1 ring-[${BRAND}]/50`}>
+          {msg}
+        </div>
+      )}
 
       <div className={card}>
         <div className="px-4 py-2 border-b text-sm text-slate-600 flex items-center justify-between">
@@ -338,7 +347,6 @@ function IncidenciaDetail({
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="absolute inset-x-0 bottom-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full sm:w-[760px]">
-        {/* FIX: quitado el '}' extra que rompía el JSX */}
         <div className={`${card} overflow-hidden mx-3 sm:mx-0`}>
           <div className="px-4 py-3 border-b bg-white flex items-center justify-between sticky top-0">
             <div className="font-semibold">
@@ -351,7 +359,7 @@ function IncidenciaDetail({
 
           <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
             {msg && (
-              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+              <div className={`p-3 rounded-xl bg-[#E6FEFF] text-slate-800 ring-1 ring-[${BRAND}]/50`}>
                 {msg}
               </div>
             )}

@@ -24,8 +24,9 @@ type Attr = {
 };
 
 /* =========================
-   Tema Hospital – Crema + Blanco
+   Tema Hospital – Crema + Blanco + Turquesa
 ========================= */
+const BRAND = "#80F9FA";
 const BG_APP = "bg-[#FFFDF8]";
 const TEXT = "text-slate-800";
 const MUTED = "text-slate-600";
@@ -36,7 +37,7 @@ const card = cardBase + " p-4 md:p-5";
 const baseText = "leading-relaxed tracking-[0.01em]";
 
 const focusRing =
-  "focus:outline-none focus:ring-2 focus:ring-emerald-300/40 focus:border-emerald-300/60";
+  `focus:outline-none focus:ring-2 focus:ring-[${BRAND}]/40 focus:border-[${BRAND}]`;
 const fieldBase =
   "w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-base placeholder-slate-400 " +
   TEXT +
@@ -45,26 +46,28 @@ const fieldBase =
   " transition";
 
 const btnBase =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base " +
-  TEXT +
-  " hover:bg-slate-50 active:bg-slate-100 transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[88px]";
+  `inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base ${TEXT}
+   hover:border-[${BRAND}] hover:bg-[#F0FEFE] active:bg-[#E1FDFD] transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[88px]`;
 const btnPrimary =
-  "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base bg-emerald-600 text-white font-medium hover:bg-emerald-500 active:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[112px]";
+  `inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base bg-[${BRAND}] text-slate-800 font-medium
+   hover:bg-[#6ee7e9] active:bg-[#4fd4d7] transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[112px]`;
 const btnAccent =
-  "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base bg-sky-600 text-white font-medium hover:bg-sky-500 active:bg-sky-700 transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[112px]";
+  `inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base bg-sky-600 text-white font-medium
+   hover:bg-sky-500 active:bg-sky-700 transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[112px]`;
 
 function Chip({
   children,
   tone = "slate",
 }: {
   children: React.ReactNode;
-  tone?: "slate" | "emerald" | "amber" | "rose";
+  tone?: "slate" | "emerald" | "amber" | "rose" | "brand";
 }) {
   const map = {
     slate: "bg-slate-100 text-slate-700",
     emerald: "bg-emerald-100 text-emerald-700",
     amber: "bg-amber-100 text-amber-800",
     rose: "bg-rose-100 text-rose-700",
+    brand: "bg-[#E6FEFF] text-slate-800", // turquesa suave
   } as const;
   return <span className={`text-[11px] px-2 py-0.5 rounded-full ${map[tone]}`}>{children}</span>;
 }
@@ -318,7 +321,7 @@ export default function ItemDetailPage() {
               </Link>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-[22px] md:text-[26px] font-semibold">{data.item_codigo}</h2>
-                <Chip tone="slate">{data.clase}</Chip>
+                <Chip tone="brand">{data.clase}</Chip>
                 <Chip tone="emerald">{data.estado}</Chip>
                 <Chip tone="amber">{data.tipo}</Chip>
               </div>
@@ -355,11 +358,15 @@ export default function ItemDetailPage() {
 
         {/* Mensajes inline */}
         {msg && <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800">{msg}</div>}
-        {ok && <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800">{ok}</div>}
+        {ok && (
+          <div className={`p-3 rounded-xl border border-[${BRAND}]/50 bg-[#E6FEFF] text-slate-800`}>
+            {ok}
+          </div>
+        )}
 
         {/* Split */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* FICHA técnica: recuadro con barra desplazadora */}
+          {/* FICHA técnica */}
           <section className={card + " " + baseText}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Ficha técnica</h3>
@@ -530,7 +537,7 @@ export default function ItemDetailPage() {
                       <button
                         type="button"
                         className={`absolute top-2 left-2 rounded-lg border px-2 py-1 text-xs backdrop-blur
-                          ${checked ? "bg-emerald-600 text-white border-emerald-700" : "bg-white/90 text-slate-700 border-slate-200"}`}
+                          ${checked ? `bg-[${BRAND}] text-slate-800 border-slate-300` : "bg-white/90 text-slate-700 border-slate-200"}`}
                         onClick={() => {
                           setSelectedPaths((prev) => {
                             const next = new Set(prev);

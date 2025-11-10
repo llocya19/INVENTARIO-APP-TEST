@@ -1,4 +1,4 @@
-// src/api/incidencias.ts
+// frontend/src/api/incidencias.ts
 import http from "./http";
 
 export type Incidencia = {
@@ -13,23 +13,30 @@ export type Incidencia = {
   created_at?: string;
 };
 
+/* =========================
+ * LISTADOS
+ * ========================= */
 export async function listarIncidencias(params: {
   estado?: string;
   area_id?: number;
   q?: string;
   page?: number;
   size?: number;
-  mine?: boolean;
+  mine?: boolean; // cuando es true, trae solo del usuario autenticado
 }) {
   const { data } = await http.get("/api/incidencias", { params });
   return data as { items: Incidencia[]; total: number; page: number; size: number };
 }
 
-export async function listarMisIncidencias(params: { page: number; size: number }) {
-  const { data } = await http.get("/api/incidencias", { params });
-  return data as { items: Incidencia[]; total: number; page: number; size: number };
+/** Opción A: wrapper para no tocar tus páginas */
+export async function listarMisIncidencias(params: { page?: number; size?: number }) {
+  // reutiliza el mismo endpoint forzando mine=true
+  return listarIncidencias({ ...params, mine: true });
 }
 
+/* =========================
+ * CRUD BÁSICO
+ * ========================= */
 export async function crearIncidencia(payload: {
   titulo: string;
   descripcion: string;
@@ -42,8 +49,15 @@ export async function crearIncidencia(payload: {
 
 export async function obtenerIncidencia(id: number) {
   const { data } = await http.get(`/api/incidencias/${id}`);
+  // El detalle puede seguir devolviendo solo_staff (compat)
   return data as Incidencia & {
-    mensajes: { msg_id?: number; mensaje: string; usuario: string; created_at: string; solo_staff?: boolean }[];
+    mensajes: {
+      msg_id?: number;
+      mensaje: string;
+      usuario: string;
+      created_at: string;
+      solo_staff?: boolean; // backend puede seguir enviándolo en el detalle
+    }[];
     asignado_a?: string | null;
   };
 }
@@ -70,22 +84,48 @@ export async function cambiarEstado(inc_id: number, estado: Incidencia["estado"]
   return data as { ok: true };
 }
 
-/* ---- NUEVO: polling de notificaciones ---- */
+/* =========================
+ * NOTIFICACIONES (polling)
+ * ========================= */
+export type UpdateItem = {
+  msg_id: number;
+  inc_id: number;
+  mensaje: string;
+  usuario: string;
+  created_at: string;
+  visibilidad: "PUBLIC" | "STAFF"; // <- usado por IncidenciaNotifier
+  titulo: string;
+  estado: string;
+  type: "MSG" | "NEW_INC" | "ASSIGNED"; // <- usado por IncidenciaNotifier
+};
+
 export async function fetchUpdates(since_id?: number) {
   const { data } = await http.get("/api/incidencias/updates", { params: { since_id } });
   return data as {
-    items: { msg_id: number; inc_id: number; mensaje: string; usuario: string; created_at: string; solo_staff?: boolean; titulo: string; estado: string }[];
+    items: UpdateItem[];
     last_id: number;
   };
 }
 
-/* ---- NUEVO: acciones masivas (si las usas) ---- */
+/* =========================
+ * ACCIONES MASIVAS (opcional)
+ * ========================= */
 export async function bulkAsignar(inc_ids: number[], username: string) {
   const { data } = await http.post("/api/incidencias/bulk-asignar", { inc_ids, username });
-  return data as { ok?: boolean; error?: string; done: number[]; skipped: { inc_id: number; reason: string }[] };
+  return data as {
+    ok?: boolean;
+    error?: string;
+    done: number[];
+    skipped: { inc_id: number; reason: string }[];
+  };
 }
 
 export async function bulkEstado(inc_ids: number[], estado: Incidencia["estado"]) {
   const { data } = await http.post("/api/incidencias/bulk-estado", { inc_ids, estado });
-  return data as { ok?: boolean; error?: string; done: number[]; skipped: { inc_id: number; reason: string }[] };
+  return data as {
+    ok?: boolean;
+    error?: string;
+    done: number[];
+    skipped: { inc_id: number; reason: string }[];
+  };
 }

@@ -1,4 +1,3 @@
-// src/pages/EquipoDetalle.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import http from "../api/http";
@@ -10,10 +9,14 @@ const MUTED = "text-slate-600";
 const section = "rounded-2xl border border-slate-200 bg-white shadow-sm";
 const card = section + " p-4 sm:p-5";
 const focusRing =
-  "focus:outline-none focus:ring-2 focus:ring-emerald-300/40 focus:border-emerald-300/60";
+  "focus:outline-none focus:ring-2 focus:ring-[#80F9FA]/40 focus:border-[#80F9FA]/60";
 const fieldBase =
   "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-[15px] " +
-  "placeholder-slate-400 " + TEXT + " " + focusRing + " transition";
+  "placeholder-slate-400 " +
+  TEXT +
+  " " +
+  focusRing +
+  " transition";
 
 /* =============================== Tipos API =============================== */
 type Clase = "COMPONENTE" | "PERIFERICO";
@@ -52,7 +55,7 @@ type ItemDisponible = {
 type ItemsPage = { items: ItemDisponible[]; total: number; page: number; size: number };
 type ItemType = { id: number; clase: Clase; nombre: string };
 
-/* ============================== UI Helpers ============================== */
+/* ============================== Botón Turquesa ============================== */
 function Button(
   props: React.ButtonHTMLAttributes<HTMLButtonElement> & {
     variant?: "primary" | "secondary" | "subtle" | "danger";
@@ -63,7 +66,7 @@ function Button(
     "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition min-h-[44px]";
   const map = {
     primary:
-      "bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed",
+      "bg-[#80F9FA] text-slate-900 hover:bg-[#6DE2E3] active:bg-[#5FD0D1] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed",
     secondary:
       "bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed",
     subtle: "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100",
@@ -76,11 +79,12 @@ function Button(
   );
 }
 
+/* ============================== Otros Helpers ============================== */
 function Icon({
   name,
   className = "h-4 w-4",
 }: {
-  name: "chevL" | "chevR" | "close";
+  name: "chevL" | "chevR" | "close" | "arrowR";
   className?: string;
 }) {
   if (name === "chevL")
@@ -95,6 +99,12 @@ function Icon({
         <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
+  if (name === "arrowR")
+    return (
+      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+        <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
       <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -105,7 +115,7 @@ function Icon({
 function BadgeEstado({ estado }: { estado?: string }) {
   const e = (estado || "").toUpperCase();
   const map: Record<string, string> = {
-    USO: "bg-emerald-100 text-emerald-700",
+    USO: "bg-[#80F9FA]/30 text-slate-900",
     ALMACEN: "bg-slate-100 text-slate-700",
     MANTENIMIENTO: "bg-amber-100 text-amber-800",
     BAJA: "bg-rose-100 text-rose-700",
@@ -170,8 +180,16 @@ export default function EquipoDetalle() {
   const [typesP, setTypesP] = useState<ItemType[]>([]);
   const addTypeOpts = addClase === "COMPONENTE" ? typesC : typesP;
 
-  const [addFilter, setAddFilter] = useState<{ tipo: string; q: string }>({ tipo: "", q: "" });
-  const [addPage, setAddPage] = useState<ItemsPage>({ items: [], total: 0, page: 1, size: 10 });
+  const [addFilter, setAddFilter] = useState<{ tipo: string; q: string }>({
+    tipo: "",
+    q: "",
+  });
+  const [addPage, setAddPage] = useState<ItemsPage>({
+    items: [],
+    total: 0,
+    page: 1,
+    size: 10,
+  });
 
   const areaId = useMemo(() => header?.area_id ?? 0, [header]);
   const isEnUso = ((header?.estado || edit.estado) ?? "").toUpperCase() === "USO";
@@ -224,7 +242,9 @@ export default function EquipoDetalle() {
     if (addFilter.tipo) params.tipo = addFilter.tipo;
     if (addFilter.q) params.q = addFilter.q;
 
-    const r = await http.get<ItemsPage>(`/api/areas/${areaId}/items-disponibles`, { params });
+    const r = await http.get<ItemsPage>(`/api/areas/${areaId}/items-disponibles`, {
+      params,
+    });
     setAddPage(r.data || { items: [], total: 0, page, size });
   }
 
@@ -266,7 +286,10 @@ export default function EquipoDetalle() {
     setMsg(null);
     setOk(null);
     try {
-      await http.post(`/api/equipos/${equipoId}/items`, { item_id: it.item_id, slot: null });
+      await http.post(`/api/equipos/${equipoId}/items`, {
+        item_id: it.item_id,
+        slot: null,
+      });
       await loadDetalle("Ítem asignado");
       await loadDisponibles(addPage.page, addPage.size);
     } catch (er: any) {
@@ -296,7 +319,9 @@ export default function EquipoDetalle() {
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-[22px] font-semibold">{header?.equipo_nombre || "Equipo"}</h1>
+                <h1 className="text-[22px] font-semibold">
+                  {header?.equipo_nombre || "Equipo"}
+                </h1>
                 <BadgeEstado estado={header?.estado} />
               </div>
               {header && (
@@ -308,36 +333,65 @@ export default function EquipoDetalle() {
                   <span className="font-mono">{header.equipo_codigo}</span>
                   <span className="text-slate-400">·</span>
                   <span>
-                    Creado: <b>{header?.created_at ? new Date(header.created_at).toLocaleString() : "-"}</b>
+                    Creado:{" "}
+                    <b>
+                      {header?.created_at
+                        ? new Date(header.created_at).toLocaleString()
+                        : "-"}
+                    </b>
                   </span>
                   <span className="text-slate-400">·</span>
                   <span>
-                    Modificado: <b>{header?.updated_at ? new Date(header.updated_at).toLocaleString() : "-"}</b>
+                    Modificado:{" "}
+                    <b>
+                      {header?.updated_at
+                        ? new Date(header.updated_at).toLocaleString()
+                        : "-"}
+                    </b>
                   </span>
                 </div>
               )}
             </div>
             {header && (
-              <Link to={`/areas/${header.area_id}`} className="inline-flex items-center justify-center rounded-xl bg-emerald-600 text-white px-4 py-3 text-sm hover:bg-emerald-500">
+              <Link
+                to={`/areas/${header.area_id}`}
+                className="inline-flex items-center justify-center rounded-xl bg-[#80F9FA] text-slate-900 px-4 py-3 text-sm shadow-sm hover:bg-[#6DE2E3]"
+              >
                 Volver al área
               </Link>
             )}
           </div>
         </div>
 
-        {msg && <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800">{msg}</div>}
-        {ok && <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800">{ok}</div>}
+        {msg && (
+          <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800">
+            {msg}
+          </div>
+        )}
+        {ok && (
+          <div className="p-3 rounded-xl border border-emerald-200 bg-[#E6FFFE] text-slate-900">
+            {ok}
+          </div>
+        )}
 
         {/* Metadatos equipo */}
         <form onSubmit={onPatch} className={card}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             <div>
               <div className="text-sm text-slate-600 mb-1">Nombre</div>
-              <input className={fieldBase} value={edit.nombre} onChange={(e) => setEdit((s) => ({ ...s, nombre: e.target.value }))} />
+              <input
+                className={fieldBase}
+                value={edit.nombre}
+                onChange={(e) => setEdit((s) => ({ ...s, nombre: e.target.value }))}
+              />
             </div>
             <div>
               <div className="text-sm text-slate-600 mb-1">Estado</div>
-              <select className={fieldBase} value={edit.estado} onChange={(e) => setEdit((s) => ({ ...s, estado: e.target.value }))}>
+              <select
+                className={fieldBase}
+                value={edit.estado}
+                onChange={(e) => setEdit((s) => ({ ...s, estado: e.target.value }))}
+              >
                 <option value="ALMACEN">ALMACEN</option>
                 <option value="USO">USO</option>
                 <option value="MANTENIMIENTO">MANTENIMIENTO</option>
@@ -346,11 +400,21 @@ export default function EquipoDetalle() {
             </div>
             <div>
               <div className="text-sm text-slate-600 mb-1">Usuario final</div>
-              <input className={fieldBase} value={edit.usuario_final} onChange={(e) => setEdit((s) => ({ ...s, usuario_final: e.target.value }))} />
+              <input
+                className={fieldBase}
+                value={edit.usuario_final}
+                onChange={(e) =>
+                  setEdit((s) => ({ ...s, usuario_final: e.target.value }))
+                }
+              />
             </div>
             <div>
               <div className="text-sm text-slate-600 mb-1">Login</div>
-              <input className={fieldBase} value={edit.login} onChange={(e) => setEdit((s) => ({ ...s, login: e.target.value }))} />
+              <input
+                className={fieldBase}
+                value={edit.login}
+                onChange={(e) => setEdit((s) => ({ ...s, login: e.target.value }))}
+              />
             </div>
             <div>
               <div className="text-sm text-slate-600 mb-1">Password</div>
@@ -363,7 +427,9 @@ export default function EquipoDetalle() {
               />
             </div>
             <div className="md:self-end">
-              <Button type="submit" variant="primary" className="w-full md:w-auto">Guardar cambios</Button>
+              <Button type="submit" variant="primary" className="w-full md:w-auto">
+                Guardar cambios
+              </Button>
             </div>
           </div>
         </form>
@@ -371,21 +437,29 @@ export default function EquipoDetalle() {
         {/* Aviso si no está en USO */}
         {header && !isEnUso && (
           <div className="p-3 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-sm">
-            Para agregar ítems <b>en USO</b>, cambia el estado del equipo a <b>USO</b> y guarda.
+            Para agregar ítems <b>en USO</b>, cambia el estado del equipo a <b>USO</b> y
+            guarda.
           </div>
         )}
 
         {/* Acciones rápidas */}
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="text-lg font-semibold">Componentes & Periféricos asignados</div>
+          <div className="text-lg font-semibold">
+            Componentes & Periféricos asignados
+          </div>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => setOpenAdd(true)} disabled={!header} title="Asignar ítems existentes en ALMACÉN">
+            <Button
+              variant="secondary"
+              onClick={() => setOpenAdd(true)}
+              disabled={!header}
+              title="Asignar ítems existentes en ALMACÉN"
+            >
               📦 Agregar (ALMACÉN)
             </Button>
             {header && isEnUso && (
               <Link
                 to={`/equipos/${header.equipo_id}/agregar-en-uso`}
-                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 text-white px-4 py-3 text-sm hover:bg-emerald-500"
+                className="inline-flex items-center justify-center rounded-xl bg-[#80F9FA] text-slate-900 px-4 py-3 text-sm shadow-sm hover:bg-[#6DE2E3]"
                 title="Crear y asignar nuevos ítems en USO a este equipo"
               >
                 ➕ Agregar ítems (EN USO)
@@ -396,8 +470,18 @@ export default function EquipoDetalle() {
 
         {/* Tablas asignados */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ItemsAsignados title="Componentes" rows={componentes} onRemove={onRemoveItem} loading={loading} />
-          <ItemsAsignados title="Periféricos" rows={perifericos} onRemove={onRemoveItem} loading={loading} />
+          <ItemsAsignados
+            title="Componentes"
+            rows={componentes}
+            onRemove={onRemoveItem}
+            loading={loading}
+          />
+          <ItemsAsignados
+            title="Periféricos"
+            rows={perifericos}
+            onRemove={onRemoveItem}
+            loading={loading}
+          />
         </div>
 
         {/* Panel Agregar desde ALMACÉN (modal) */}
@@ -406,7 +490,9 @@ export default function EquipoDetalle() {
             <div className="w-full max-w-4xl rounded-2xl bg-white shadow-xl ring-1 ring-slate-200 overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                 <div className="font-semibold">Agregar ítems desde almacén</div>
-                <Button variant="secondary" onClick={() => setOpenAdd(false)}><Icon name="close" /> Cerrar</Button>
+                <Button variant="secondary" onClick={() => setOpenAdd(false)}>
+                  <Icon name="close" /> Cerrar
+                </Button>
               </div>
 
               <div className="p-4 space-y-4">
@@ -415,8 +501,15 @@ export default function EquipoDetalle() {
                   {(["COMPONENTE", "PERIFERICO"] as const).map((c) => (
                     <button
                       key={c}
-                      onClick={() => { setAddClase(c); setAddFilter({ tipo: "", q: "" }); }}
-                      className={`px-4 py-2 text-sm ${addClase === c ? "bg-emerald-600 text-white" : "bg-white hover:bg-slate-50"}`}
+                      onClick={() => {
+                        setAddClase(c);
+                        setAddFilter({ tipo: "", q: "" });
+                      }}
+                      className={`px-4 py-2 text-sm ${
+                        addClase === c
+                          ? "bg-[#80F9FA] text-slate-900"
+                          : "bg-white hover:bg-slate-50"
+                      }`}
                     >
                       {c === "COMPONENTE" ? "Componentes" : "Periféricos"}
                     </button>
@@ -430,7 +523,9 @@ export default function EquipoDetalle() {
                     <select
                       className={fieldBase}
                       value={addFilter.tipo}
-                      onChange={(e) => setAddFilter((f) => ({ ...f, tipo: e.target.value }))}
+                      onChange={(e) =>
+                        setAddFilter((f) => ({ ...f, tipo: e.target.value }))
+                      }
                     >
                       <option value="">(Todos)</option>
                       {addTypeOpts.map((t) => (
@@ -446,11 +541,17 @@ export default function EquipoDetalle() {
                       className={fieldBase}
                       placeholder="Ej. PC-001"
                       value={addFilter.q}
-                      onChange={(e) => setAddFilter((f) => ({ ...f, q: e.target.value }))}
+                      onChange={(e) =>
+                        setAddFilter((f) => ({ ...f, q: e.target.value }))
+                      }
                     />
                   </div>
                   <div className="sm:col-span-4">
-                    <Button variant="secondary" onClick={() => loadDisponibles(1, addPage.size)} disabled={!areaId}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => loadDisponibles(1, addPage.size)}
+                      disabled={!areaId}
+                    >
                       Aplicar filtros
                     </Button>
                   </div>
@@ -473,7 +574,11 @@ export default function EquipoDetalle() {
                           <tr key={r.item_id} className="border-t">
                             <td className="px-3 py-2 font-mono">{r.item_codigo}</td>
                             <td className="px-3 py-2">{r.tipo}</td>
-                            <td className="px-3 py-2">{r.created_at ? new Date(r.created_at).toLocaleString() : "-"}</td>
+                            <td className="px-3 py-2">
+                              {r.created_at
+                                ? new Date(r.created_at).toLocaleString()
+                                : "-"}
+                            </td>
                             <td className="px-3 py-2 text-right">
                               <Button variant="primary" onClick={() => onAddItem(r)}>
                                 Agregar
@@ -518,14 +623,20 @@ export default function EquipoDetalle() {
                       <Button
                         variant="secondary"
                         disabled={addPage.page <= 1}
-                        onClick={() => loadDisponibles(addPage.page - 1, addPage.size)}
+                        onClick={() =>
+                          loadDisponibles(addPage.page - 1, addPage.size)
+                        }
+                        title="Anterior"
                       >
                         <Icon name="chevL" />
                       </Button>
                       <Button
                         variant="secondary"
                         disabled={addPage.page * addPage.size >= addPage.total}
-                        onClick={() => loadDisponibles(addPage.page + 1, addPage.size)}
+                        onClick={() =>
+                          loadDisponibles(addPage.page + 1, addPage.size)
+                        }
+                        title="Siguiente"
                       >
                         <Icon name="chevR" />
                       </Button>
@@ -557,8 +668,20 @@ function ItemsAsignados({
   loading,
 }: {
   title: string;
-  rows: { item_id: number; item_codigo: string; tipo: string; clase: Clase; estado: string }[];
-  onRemove: (it: { item_id: number; item_codigo: string; tipo: string; clase: Clase; estado: string }) => void;
+  rows: {
+    item_id: number;
+    item_codigo: string;
+    tipo: string;
+    clase: Clase;
+    estado: string;
+  }[];
+  onRemove: (it: {
+    item_id: number;
+    item_codigo: string;
+    tipo: string;
+    clase: Clase;
+    estado: string;
+  }) => void;
   loading?: boolean;
 }) {
   return (
@@ -577,7 +700,8 @@ function ItemsAsignados({
             </tr>
           </thead>
           <tbody>
-            {loading && Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={`sk-${i}`} />)}
+            {loading &&
+              Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={`sk-${i}`} />)}
             {!loading &&
               rows.map((r) => (
                 <tr key={r.item_id} className="border-t">
@@ -592,7 +716,7 @@ function ItemsAsignados({
                     <div className="flex items-center gap-2 justify-end">
                       <Link
                         to={`/items/${r.item_id}`}
-                        className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm hover:bg-emerald-500"
+                        className="px-3 py-2 rounded-xl bg-[#80F9FA] text-slate-900 text-sm hover:bg-[#6DE2E3]"
                         title="Ver ficha técnica"
                       >
                         Ver ficha
@@ -600,6 +724,7 @@ function ItemsAsignados({
                       <button
                         className="inline-flex items-center justify-center rounded-xl border border-rose-300 text-rose-700 px-3 py-2 text-sm hover:bg-rose-50 transition"
                         onClick={() => onRemove(r)}
+                        title="Retirar del equipo"
                       >
                         Retirar
                       </button>
@@ -610,7 +735,10 @@ function ItemsAsignados({
             {!loading && rows.length === 0 && (
               <tr>
                 <td className="px-3 py-6" colSpan={4}>
-                  <EmptyState title="Sin registros" desc="Aún no hay ítems asignados a este equipo." />
+                  <EmptyState
+                    title="Sin registros"
+                    desc="Aún no hay ítems asignados a este equipo."
+                  />
                 </td>
               </tr>
             )}

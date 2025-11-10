@@ -1,85 +1,10 @@
-// src/pages/AreaView.tsx
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import http from "../api/http";
 
-/* ===================== Tema Hospital (Crema + Blanco) ===================== */
-const BG_APP = "bg-[#FFFDF8]"; // crema muy claro
-const TEXT = "text-slate-800";
-const MUTED = "text-slate-600";
-const section = "rounded-2xl border border-slate-200 bg-white shadow-sm";
-const card = "rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm";
-const baseText = "leading-relaxed tracking-[0.01em]";
-const focusRing =
-  "focus:outline-none focus:ring-2 focus:ring-emerald-300/40 focus:border-emerald-300/60";
-
-const fieldBase =
-  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-[15px] " +
-  "placeholder-slate-400 " + TEXT + " " + focusRing + " transition";
-
-/* ========================== Botón reutilizable =========================== */
-function Button(
-  props: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: "primary" | "secondary" | "subtle" | "danger";
-  }
-) {
-  const { children, variant = "primary", className = "", ...rest } = props;
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition min-h-[44px]";
-  const map = {
-    primary:
-      "bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed",
-    secondary:
-      "bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed",
-    subtle: "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100",
-    danger: "bg-rose-600 text-white hover:bg-rose-700",
-  } as const;
-  return (
-    <button className={`${base} ${map[variant]} ${className}`} {...rest}>
-      {children}
-    </button>
-  );
-}
-
-/* ============================== Iconos SVG =============================== */
-function Icon({
-  name,
-  className = "h-4 w-4",
-}: {
-  name: "back" | "plus" | "camera" | "chevL" | "chevR";
-  className?: string;
-}) {
-  if (name === "back")
-    return (
-      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-        <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  if (name === "plus")
-    return (
-      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  if (name === "camera")
-    return (
-      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-        <path d="M4 7h3l2-2h6l2 2h3v12H4V7z" stroke="currentColor" strokeWidth="2" />
-        <circle cx="12" cy="13" r="3.5" stroke="currentColor" strokeWidth="2" />
-      </svg>
-    );
-  if (name === "chevL")
-    return (
-      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-        <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    );
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
+// UI unificada
+import Button from "../components/ui/Button";
+import { container, surfaceSection, surfaceCard, fieldBase } from "../components/ui/tokens";
 
 /* =============================== Tipos ================================ */
 type Clase = "COMPONENTE" | "PERIFERICO";
@@ -123,18 +48,58 @@ type Attr = {
   orden?: number | null;
 };
 
+/* ============================== Iconos ============================== */
+function Icon({
+  name,
+  className = "h-4 w-4",
+}: {
+  name: "back" | "plus" | "camera" | "chevL" | "chevR";
+  className?: string;
+}) {
+  if (name === "back")
+    return (
+      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+        <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  if (name === "plus")
+    return (
+      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  if (name === "camera")
+    return (
+      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+        <path d="M4 7h3l2-2h6l2 2h3v12H4V7z" stroke="currentColor" strokeWidth="2" />
+        <circle cx="12" cy="13" r="3.5" stroke="currentColor" strokeWidth="2" />
+      </svg>
+    );
+  if (name === "chevL")
+    return (
+      <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /* =========================== Badges y vacíos =========================== */
 function Badge({
   children,
   tone = "slate",
 }: {
   children: React.ReactNode;
-  tone?: "slate" | "emerald" | "amber" | "sky";
+  tone?: "slate" | "amber" | "emerald" | "sky";
 }) {
-  const map = {
+  const map: Record<NonNullable<typeof tone>, string> = {
     slate: "bg-slate-100 text-slate-700",
+    amber: "bg-amber-100 text-amber-900",
     emerald: "bg-emerald-100 text-emerald-700",
-    amber: "bg-amber-100 text-amber-800",
     sky: "bg-sky-100 text-sky-700",
   };
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs ${map[tone]}`}>{children}</span>;
@@ -145,7 +110,8 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
     <div className="text-center py-10">
       <div className="mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-3">—</div>
       <div className="font-medium text-slate-700">{title}</div>
-      {hint && <div className="text-sm text-slate-500 mt-1">{hint}</div>}
+      {hint && <div className="text-sm text-slate-500 mt-1">{hint}</div>
+      }
     </div>
   );
 }
@@ -212,7 +178,7 @@ function CameraCapture({
 
   return (
     <div className="fixed inset-0 bg-black/10 backdrop-blur-[1px] z-50 flex items-center justify-center p-4">
-      <div className={section + " w-full max-w-md overflow-hidden"}>
+      <div className={`${surfaceCard} w-full max-w-md overflow-hidden`}>
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <div className="font-semibold">Cámara</div>
           <Button variant="secondary" onClick={onClose}>Cerrar</Button>
@@ -453,10 +419,10 @@ export default function AreaView() {
 
   /* ============================== Render ============================== */
   return (
-    <div className={`${BG_APP} ${TEXT} min-h-[calc(100vh-64px)]`}>
-      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-5 space-y-4">
+    <div className="min-h-[calc(100vh-64px)] bg-[#FFFCF3] text-slate-800">
+      <div className={`${container} py-5 space-y-4`}>
         {/* App bar */}
-        <div className={section + " " + baseText}>
+        <section className={surfaceSection}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 py-4">
             <div className="flex items-start gap-3">
               <Button
@@ -469,9 +435,9 @@ export default function AreaView() {
               <div>
                 <div className="text-[22px] font-semibold">{info?.area?.nombre || "Área"}</div>
                 {info && (
-                  <div className={`${MUTED} text-sm flex flex-wrap items-center gap-1 mt-1`}>
+                  <div className="text-sm text-slate-600 flex flex-wrap items-center gap-1 mt-1">
                     {info.ancestors.length === 0 ? (
-                      <Badge tone="emerald">Servicio raíz</Badge>
+                      <Badge tone="amber">Servicio raíz</Badge>
                     ) : (
                       <>
                         <span className="text-slate-400 mr-1">Ruta:</span>
@@ -512,21 +478,37 @@ export default function AreaView() {
 
               {openMenu && (
                 <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
-                  <Link to={`/areas/${areaId}/equipos/nuevo`} className="block px-4 py-3 hover:bg-emerald-50" onClick={() => setOpenMenu(false)}>
+                  <Link
+                    to={`/areas/${areaId}/equipos/nuevo`}
+                    className="block px-4 py-3 hover:bg-[#E0FEFF]"
+                    onClick={() => setOpenMenu(false)}
+                  >
                     Crear desde ALMACÉN
                   </Link>
-                  <Link to={`/areas/${areaId}/equipos/nuevo-uso`} className="block px-4 py-3 hover:bg-emerald-50" onClick={() => setOpenMenu(false)}>
+                  <Link
+                    to={`/areas/${areaId}/equipos/nuevo-uso`}
+                    className="block px-4 py-3 hover:bg-[#E0FEFF]"
+                    onClick={() => setOpenMenu(false)}
+                  >
                     Crear en USO (con nuevos ítems)
                   </Link>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Alerts */}
-        {msg && <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800">{msg}</div>}
-        {ok && <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800">{ok}</div>}
+        {msg && (
+          <div className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800">
+            {msg}
+          </div>
+        )}
+        {ok && (
+          <div className="p-3 rounded-xl border border-[#80F9FA] bg-[#E0FEFF] text-slate-900">
+            {ok}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-2">
@@ -542,13 +524,13 @@ export default function AreaView() {
 
         {/* === PRIMERO: FORMULARIO === */}
         {tab !== "EQUIPOS" && (
-          <form onSubmit={createItem} className={card + " space-y-4 " + baseText}>
+          <form onSubmit={createItem} className={`${surfaceCard} p-4 sm:p-5 space-y-4`}>
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-base font-medium">
                   Nuevo {claseActual === "COMPONENTE" ? "componente" : "periférico"}
                 </div>
-                <div className={`${MUTED} text-sm`}>Completa los datos y adjunta imágenes si corresponde.</div>
+                <div className="text-sm text-slate-600">Completa los datos y adjunta imágenes si corresponde.</div>
               </div>
             </div>
 
@@ -558,7 +540,7 @@ export default function AreaView() {
                   Tipo <span className="text-slate-400">({claseActual})</span>
                 </div>
                 <div className="flex gap-2">
-                  <select className={fieldBase + " w-full"} value={form.tipo_nombre} onChange={(e) => onChangeTipo(e.target.value)}>
+                  <select className={`${fieldBase} w-full`} value={form.tipo_nombre} onChange={(e) => onChangeTipo(e.target.value)}>
                     <option value="">Seleccione…</option>
                     {typeOpts.map((t) => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
                   </select>
@@ -604,7 +586,7 @@ export default function AreaView() {
               </div>
             )}
 
-            {/* Ficha dinámica (marco con scroll, sin Agregar/Quitar) */}
+            {/* Ficha dinámica */}
             <div>
               <div className="text-sm text-slate-600 mb-1">Ficha (pares clave/valor)</div>
               {!form.tipo_nombre ? (
@@ -616,18 +598,15 @@ export default function AreaView() {
                       const dt = schema.find((s) => s.nombre.toLowerCase() === row.k.toLowerCase())?.data_type || "text";
                       return (
                         <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
-                          {/* Atributo (solo lectura) */}
                           <input
-                            className={fieldBase + " bg-slate-50 cursor-not-allowed sm:col-span-1"}
+                            className={`${fieldBase} bg-slate-50 cursor-not-allowed sm:col-span-1`}
                             value={row.k}
                             readOnly
                             title="Campo definido por el tipo (solo lectura)"
                           />
-
-                          {/* Valor */}
                           {dt === "bool" ? (
                             <select
-                              className={fieldBase + " sm:col-span-1"}
+                              className={`${fieldBase} sm:col-span-1`}
                               value={row.v}
                               onChange={(e) => {
                                 const copy = [...form.specs];
@@ -642,7 +621,7 @@ export default function AreaView() {
                           ) : dt === "date" ? (
                             <input
                               type="date"
-                              className={fieldBase + " sm:col-span-1"}
+                              className={`${fieldBase} sm:col-span-1`}
                               value={row.v}
                               onChange={(e) => {
                                 const copy = [...form.specs];
@@ -652,7 +631,7 @@ export default function AreaView() {
                             />
                           ) : (
                             <input
-                              className={fieldBase + " sm:col-span-1"}
+                              className={`${fieldBase} sm:col-span-1`}
                               placeholder={dt === "int" ? "número entero" : dt === "numeric" ? "número decimal" : "texto"}
                               value={row.v}
                               onChange={(e) => {
@@ -676,9 +655,9 @@ export default function AreaView() {
           </form>
         )}
 
-        {/* === Luego: FILTROS === */}
+        {/* === Filtros Items === */}
         {tab !== "EQUIPOS" && (
-          <div className={card + " grid grid-cols-1 sm:grid-cols-4 gap-3 " + baseText}>
+          <section className={`${surfaceCard} p-4 grid grid-cols-1 sm:grid-cols-4 gap-3`}>
             <div>
               <div className="text-sm text-slate-600 mb-1">Tipo</div>
               <select
@@ -711,19 +690,36 @@ export default function AreaView() {
               />
             </div>
             <div className="flex items-end gap-2">
-              <Button variant="secondary" onClick={() => loadPagedItems(tab === "COMPONENTE" ? "COMPONENTE" : "PERIFERICO", 1, tab === "COMPONENTE" ? compPage.size : periPage.size, tab === "COMPONENTE" ? compFilter : periFilter)}>Aplicar</Button>
               <Button
-                variant="subtle"
+                variant="secondary"
+                onClick={() =>
+                  loadPagedItems(
+                    tab === "COMPONENTE" ? "COMPONENTE" : "PERIFERICO",
+                    1,
+                    tab === "COMPONENTE" ? compPage.size : periPage.size,
+                    tab === "COMPONENTE" ? compFilter : periFilter
+                  )
+                }
+              >
+                Aplicar
+              </Button>
+              <Button
+                variant="outline"
                 onClick={async () => {
                   if (tab === "COMPONENTE") setCompFilter({ tipo: "", desde: "", hasta: "" });
                   else setPeriFilter({ tipo: "", desde: "", hasta: "" });
-                  await loadPagedItems(tab === "COMPONENTE" ? "COMPONENTE" : "PERIFERICO", 1, tab === "COMPONENTE" ? compPage.size : periPage.size, tab === "COMPONENTE" ? compFilter : periFilter);
+                  await loadPagedItems(
+                    tab === "COMPONENTE" ? "COMPONENTE" : "PERIFERICO",
+                    1,
+                    tab === "COMPONENTE" ? compPage.size : periPage.size,
+                    tab === "COMPONENTE" ? compFilter : periFilter
+                  );
                 }}
               >
                 Limpiar
               </Button>
             </div>
-          </div>
+          </section>
         )}
 
         {/* Listas paginadas */}
@@ -747,7 +743,7 @@ export default function AreaView() {
         {/* Equipos */}
         {tab === "EQUIPOS" && (
           <>
-            <div className={card + " grid grid-cols-1 sm:grid-cols-4 gap-3 " + baseText}>
+            <section className={`${surfaceCard} p-4 grid grid-cols-1 sm:grid-cols-4 gap-3`}>
               <div>
                 <div className="text-sm text-slate-600 mb-1">Estado</div>
                 <select className={fieldBase} value={eqFilter.estado} onChange={(e) => setEqFilter((f) => ({ ...f, estado: e.target.value }))}>
@@ -768,11 +764,11 @@ export default function AreaView() {
               </div>
               <div className="flex items-end gap-2">
                 <Button variant="secondary" onClick={() => loadPagedEquipos(1, eqPage.size, eqFilter)}>Aplicar</Button>
-                <Button variant="subtle" onClick={async () => { setEqFilter({ estado: "", desde: "", hasta: "" }); await loadPagedEquipos(1, eqPage.size, { estado: "", desde: "", hasta: "" }); }}>
+                <Button variant="outline" onClick={async () => { setEqFilter({ estado: "", desde: "", hasta: "" }); await loadPagedEquipos(1, eqPage.size, { estado: "", desde: "", hasta: "" }); }}>
                   Limpiar
                 </Button>
               </div>
-            </div>
+            </section>
 
             <EquiposTable
               page={eqPage}
@@ -789,7 +785,7 @@ export default function AreaView() {
       {/* ========================= Modal: Nuevo Tipo ========================= */}
       {showNewType && (
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-slate-200 overflow-hidden">
+          <div className={`w-full max-w-md ${surfaceCard} overflow-hidden`}>
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
               <div className="font-semibold">Nuevo tipo ({claseActual.toLowerCase()})</div>
               <Button variant="secondary" onClick={() => setShowNewType(false)}>Cerrar</Button>
@@ -798,7 +794,7 @@ export default function AreaView() {
               <div>
                 <label className="text-sm text-slate-700">Nombre del tipo</label>
                 <input
-                  className={fieldBase + " mt-1"}
+                  className={`${fieldBase} mt-1`}
                   placeholder="p. ej. MONITOR, CPU, MOUSE"
                   value={newTypeName}
                   onChange={(e) => setNewTypeName(e.target.value)}
@@ -825,7 +821,7 @@ export default function AreaView() {
       {/* ======================== Modal: Nuevo Campo ======================== */}
       {showNewAttr && (
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl ring-1 ring-slate-200 overflow-hidden">
+          <div className={`w-full max-w-lg ${surfaceCard} overflow-hidden`}>
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
               <div className="font-semibold">Nuevo campo para {form.tipo_nombre || "—"}</div>
               <Button variant="secondary" onClick={() => setShowNewAttr(false)}>Cerrar</Button>
@@ -835,7 +831,7 @@ export default function AreaView() {
                 <div>
                   <label className="text-sm text-slate-700">Nombre del atributo</label>
                   <input
-                    className={fieldBase + " mt-1"}
+                    className={`${fieldBase} mt-1`}
                     placeholder="p. ej. CAPACIDAD_GB"
                     value={newAttr.nombre}
                     onChange={(e) => setNewAttr((a) => ({ ...a, nombre: e.target.value }))}
@@ -844,7 +840,7 @@ export default function AreaView() {
                 <div>
                   <label className="text-sm text-slate-700">Tipo de dato</label>
                   <select
-                    className={fieldBase + " mt-1"}
+                    className={`${fieldBase} mt-1`}
                     value={newAttr.data_type}
                     onChange={(e) => setNewAttr((a) => ({ ...a, data_type: e.target.value as Attr["data_type"] }))}
                   >
@@ -892,7 +888,7 @@ function ItemsTable({
 }) {
   const totalPages = Math.max(1, Math.ceil((page.total || 0) / (page.size || 10)));
   return (
-    <div className={section}>
+    <section className={surfaceCard}>
       <div className="overflow-x-auto">
         <table className="min-w-full table-auto">
           <thead className="bg-slate-50 sticky top-0 z-10">
@@ -917,11 +913,15 @@ function ItemsTable({
                 <td className="px-3 py-2 whitespace-normal break-words">{r.equipo ? `${r.equipo.equipo_codigo} · ${r.equipo.equipo_nombre}` : "-"}</td>
                 <td className="px-3 py-2 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <Link to={`/items/${r.item_id}`} className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm hover:bg-emerald-500">
+                    {/* Turquesa en links de acción */}
+                    <Link
+                      to={`/items/${r.item_id}`}
+                      className="px-3 py-2 rounded-xl bg-[#80F9FA] text-slate-900 text-sm hover:bg-[#6DE2E3] active:bg-[#5FD0D1] shadow-sm"
+                    >
                       Ver ficha
                     </Link>
                     {r.puede_devolver ? (
-                      <Button variant="subtle" onClick={() => onDevolver(r)}>Devolver</Button>
+                      <Button variant="outline" onClick={() => onDevolver(r)}>Devolver</Button>
                     ) : null}
                   </div>
                 </td>
@@ -935,7 +935,7 @@ function ItemsTable({
       </div>
 
       <TablePager total={page.total} page={page.page} size={page.size} totalPages={totalPages} onPage={onPage} onSize={onSize} />
-    </div>
+    </section>
   );
 }
 
@@ -947,7 +947,7 @@ function EquiposTable({
   const totalPages = Math.max(1, Math.ceil((page.total || 0) / (page.size || 10)));
   const rows = Array.isArray(page.items) ? page.items : [];
   return (
-    <div className={section}>
+    <section className={surfaceCard}>
       <div className="overflow-x-auto">
         <table className="min-w-full table-auto">
           <thead className="bg-slate-50 sticky top-0 z-10">
@@ -971,7 +971,10 @@ function EquiposTable({
                 <td className="px-3 py-2">{r.created_at ? new Date(r.created_at).toLocaleString() : "-"}</td>
                 <td className="px-3 py-2">{r.updated_at ? new Date(r.updated_at).toLocaleString() : "-"}</td>
                 <td className="px-3 py-2 text-right">
-                  <Link to={`/equipos/${r.equipo_id}`} className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm hover:bg-emerald-500">
+                  <Link
+                    to={`/equipos/${r.equipo_id}`}
+                    className="px-3 py-2 rounded-xl bg-[#80F9FA] text-slate-900 text-sm hover:bg-[#6DE2E3] active:bg-[#5FD0D1] shadow-sm"
+                  >
                     Abrir
                   </Link>
                 </td>
@@ -985,7 +988,7 @@ function EquiposTable({
       </div>
 
       <TablePager total={page.total} page={page.page} size={page.size} totalPages={totalPages} onPage={onPage} onSize={onSize} />
-    </div>
+    </section>
   );
 }
 
@@ -997,7 +1000,7 @@ function TablePager({
 }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 border-t border-slate-200">
-      <div className={`${MUTED} text-sm`}>Total: {total.toLocaleString()}</div>
+      <div className="text-sm text-slate-600">Total: {total.toLocaleString()}</div>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
           <Icon name="chevL" />
@@ -1006,7 +1009,7 @@ function TablePager({
         <Button variant="secondary" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>
           <Icon name="chevR" />
         </Button>
-        <select className={fieldBase + " ml-2 w-28 py-2"} value={size} onChange={(e) => onSize(Number(e.target.value))}>
+        <select className={`${fieldBase} ml-2 w-28 py-2`} value={size} onChange={(e) => onSize(Number(e.target.value))}>
           {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} / pág</option>)}
         </select>
       </div>

@@ -2,13 +2,18 @@
 from flask import Blueprint, request, jsonify
 from app.core.security import require_auth, require_roles
 from app.models.incidencia_model import (
-    create_incidencia, list_incidencias, get_incidencia,
-    add_mensaje, asignar_incidencia, set_estado, list_updates
+    create_incidencia,
+    list_incidencias,
+    get_incidencia,
+    add_mensaje,
+    asignar_incidencia,
+    set_estado,
+    list_updates,
 )
 
 bp = Blueprint("incidencias", __name__, url_prefix="/api/incidencias")
 
-# Crear (cualquier autenticado)
+# Crear incidencia (cualquier autenticado)
 @bp.post("")
 @require_auth
 def crear():
@@ -23,15 +28,16 @@ def crear():
 
     inc_id, err = create_incidencia(
         request.claims["username"],
-        titulo, descripcion,
-        int(equipo_id) if equipo_id else None,
+        titulo,
+        descripcion,
+        int(equipo_id) if (isinstance(equipo_id, int) or (isinstance(equipo_id, str) and equipo_id.isdigit())) else None,
         email or None,
     )
     if err:
         return {"error": err}, 400
     return {"incidencia_id": inc_id}
 
-# Listar (según rol/reglas)
+# Listar incidencias
 @bp.get("")
 @require_auth
 def listar():
@@ -40,13 +46,16 @@ def listar():
     size = request.args.get("size", type=int, default=10)
     q = request.args.get("q")
     area_id = request.args.get("area_id", type=int)
-    mine = bool(request.args.get("mine", "").lower() in ("1", "true", "yes"))
+    mine = bool(str(request.args.get("mine", "")).lower() in ("1", "true", "yes"))
 
     data = list_incidencias(
         request.claims["username"],
-        mine=mine, estado=estado,
-        page=page, size=size,
-        q=q, area_id=area_id,
+        mine=mine,
+        estado=estado,
+        page=page,
+        size=size,
+        q=q,
+        area_id=area_id,
     )
     return jsonify(data)
 
@@ -59,7 +68,7 @@ def detalle(incidencia_id: int):
         return {"error": "No encontrado"}, 404
     return jsonify(data)
 
-# Mensaje en el hilo
+# Añadir mensaje
 @bp.post("/<int:incidencia_id>/mensajes")
 @require_auth
 def mensaje(incidencia_id: int):
@@ -68,12 +77,13 @@ def mensaje(incidencia_id: int):
     solo_staff = bool(d.get("solo_staff") or False)
     if not cuerpo:
         return {"error": "cuerpo requerido"}, 400
+
     msg_id, err = add_mensaje(request.claims["username"], incidencia_id, cuerpo, solo_staff=solo_staff)
     if err:
         return {"error": err}, 400
     return {"ok": True, "msg_id": msg_id}
 
-# Asignar (sólo admin)
+# Asignar (solo ADMIN)
 @bp.patch("/<int:incidencia_id>/asignar")
 @require_roles(["ADMIN"])
 def asignar(incidencia_id: int):
@@ -81,12 +91,13 @@ def asignar(incidencia_id: int):
     username = (d.get("username") or "").strip()
     if not username:
         return {"error": "username requerido"}, 400
+
     err = asignar_incidencia(request.claims["username"], incidencia_id, username)
     if err:
         return {"error": err}, 400
     return {"ok": True}
 
-# Cambiar estado (admin o practicante)
+# Cambiar estado (ADMIN o PRACTICANTE)
 @bp.patch("/<int:incidencia_id>")
 @require_roles(["ADMIN", "PRACTICANTE"])
 def estado(incidencia_id: int):
@@ -97,7 +108,7 @@ def estado(incidencia_id: int):
         return {"error": err}, 400
     return {"ok": True}
 
-# Pull incremental de notificaciones (rápido)
+# Pull incremental de notificaciones
 @bp.get("/updates")
 @require_auth
 def updates():
