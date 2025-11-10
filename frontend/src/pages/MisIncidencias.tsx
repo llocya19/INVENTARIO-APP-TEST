@@ -1,4 +1,3 @@
-// frontend/src/pages/MisIncidencias.tsx
 import { useEffect, useMemo, useState } from "react";
 import {
   listarMisIncidencias,
@@ -8,6 +7,7 @@ import {
   type Incidencia,
 } from "../api/incidencias";
 import { getProfile, updateEmail } from "../api/profile";
+import { getUser } from "../services/authService"; // ⬅ traer rol
 import IncidenciaNotifier from "@/components/widgets/IncidenciaNotifier";
 
 /* ====== Tokens visuales ====== */
@@ -31,6 +31,13 @@ function Button(
 }
 
 export default function MisIncidencias() {
+  // === rol actual para condicionar UI ===
+  const me = getUser();
+  const rol = (me?.rol || "USUARIO").toUpperCase();
+  const isAdmin = rol === "ADMIN";
+  const isPract = rol === "PRACTICANTE";
+  const isUser = rol === "USUARIO";
+
   const [page, setPage] = useState(1);
   const [size] = useState(10);
   const [rows, setRows] = useState<Incidencia[]>([]);
@@ -50,6 +57,9 @@ export default function MisIncidencias() {
   const [sel, setSel] = useState<(Incidencia & { mensajes: any[] }) | null>(null);
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
+
+  // Solo soporte (visible para practicante/admin)
+  const [soloStaff, setSoloStaff] = useState(false);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / size)), [total, size]);
 
@@ -127,16 +137,19 @@ export default function MisIncidencias() {
     const d = await obtenerIncidencia(id);
     setSel(d as any);
     setNote("");
+    setSoloStaff(false);
   }
 
   async function addNote() {
     if (!sel || !note.trim()) return;
     try {
       setSending(true);
-      await agregarMensaje(sel.inc_id, note.trim());
+      // Para practicante/admin, enviar bandera solo_staff
+      const opts = (isAdmin || isPract) ? { solo_staff: soloStaff } : undefined;
+      await agregarMensaje(sel.inc_id, note.trim(), opts as any);
       setNote("");
+      setSoloStaff(false);
       await open(sel.inc_id);
-      // dispara evento para que otros tabs/vistas refresquen si corresponde
       window.dispatchEvent(
         new CustomEvent("inc:new_msg", {
           detail: { inc_id: sel.inc_id, created_at: new Date().toISOString() },
@@ -147,7 +160,6 @@ export default function MisIncidencias() {
     }
   }
 
-  // refresca si llega un nuevo mensaje del mismo hilo
   useEffect(() => {
     const handler = (ev: Event) => {
       const e = ev as CustomEvent<{ inc_id: number }>;
@@ -164,14 +176,22 @@ export default function MisIncidencias() {
       <div className={`${section} px-4 py-4 md:px-6 md:py-5`}>
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-[22px] md:text-[26px] font-semibold">Mis incidencias</h2>
-            <p className="text-slate-600 text-sm">Crea nuevas incidencias y conversa con Soporte.</p>
+            <h2 className="text-[22px] md:text-[26px] font-semibold">
+              {isUser ? "Mis incidencias" : "Incidencias"}
+            </h2>
+            <p className="text-slate-600 text-sm">
+              {isUser ? "Crea nuevas incidencias y conversa con Soporte." : "Conversa con Soporte sobre tus incidencias asignadas/creadas."}
+            </p>
           </div>
-          <Button onClick={() => setShowNew(true)}>+ Nueva</Button>
+
+          {/* Ocultar “+ Nueva” para practicante/admin */}
+          {isUser && (
+            <Button onClick={() => setShowNew(true)}>+ Nueva</Button>
+          )}
         </div>
       </div>
 
-      {!haveEmail && (
+      {!haveEmail && isUser && (
         <div className="p-4 rounded-xl border border-amber-300 bg-amber-50">
           <div className="text-sm font-medium mb-1">Falta tu email de contacto</div>
           <div className="flex gap-2 items-center">
@@ -208,7 +228,7 @@ export default function MisIncidencias() {
               </div>
             ))
           ) : rows.length === 0 ? (
-            <div className="p-6 text-center text-slate-500">Aún no tienes incidencias.</div>
+            <div className="p-6 text-center text-slate-500">Aún no hay incidencias.</div>
           ) : (
             rows.map((r) => (
               <div
@@ -259,7 +279,7 @@ export default function MisIncidencias() {
         )}
       </div>
 
-      {showNew && (
+      {isUser && showNew && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowNew(false)} />
           <div className={`${section} relative w-full max-w-lg`}>
@@ -353,6 +373,17 @@ export default function MisIncidencias() {
                 </div>
 
                 <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {(isAdmin || isPract) && (
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300"
+                        checked={soloStaff}
+                        onChange={(e) => setSoloStaff(e.target.checked)}
+                      />
+                      Solo soporte (oculta al usuario)
+                    </label>
+                  )}
                   <input
                     className={fieldBase + " flex-1"}
                     placeholder="Escribe un mensaje…"
@@ -370,7 +401,6 @@ export default function MisIncidencias() {
         </div>
       )}
 
-      {/* Notificador global: muestra burbuja y permite abrir el chat */}
       <IncidenciaNotifier onOpenIncidencia={(id: number) => open(id)} />
     </div>
   );

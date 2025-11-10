@@ -1,4 +1,3 @@
-// src/components/widgets/IncidenciaNotifier.tsx
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchUpdates, type UpdateItem } from "@/api/incidencias";
 import { getUser } from "@/services/authService";
@@ -13,6 +12,8 @@ type BroadcastMsg =
   | { type: "leader:claimed"; id: string }
   | { type: "leader:released"; id: string };
 
+const BRAND = "#80F9FA";
+
 function Bubble({
   title, subtitle, onClick, onClose,
 }: { title: string; subtitle?: string; onClick: () => void; onClose: () => void; }) {
@@ -20,7 +21,10 @@ function Bubble({
     <div className="fixed right-4 bottom-4 z-[60] animate-[fadeIn_.15s_ease-out]">
       <div className="bg-white/95 backdrop-blur rounded-2xl shadow-lg ring-1 ring-slate-200 w-[320px] overflow-hidden">
         <div className="px-4 py-3 flex items-start gap-3">
-          <div className="shrink-0 h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+          <div
+            className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: BRAND, color: "#0f172a" /* slate-900 */ }}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 3a9 9 0 00-9 9 9 9 0 001.7 5.2L3 21l3.1-1.6A9 9 0 1012 3z" />
             </svg>
@@ -29,7 +33,13 @@ function Bubble({
             <div className="font-medium truncate">{title}</div>
             {subtitle && <div className="text-xs text-slate-600 line-clamp-2">{subtitle}</div>}
             <div className="mt-2 flex items-center gap-2">
-              <button className="inline-flex h-9 px-3 rounded-lg text-sm bg-emerald-600 text-white hover:bg-emerald-500" onClick={onClick}>
+              <button
+                className="inline-flex h-9 px-3 rounded-lg text-sm shadow-sm"
+                style={{ backgroundColor: BRAND, color: "#0f172a" }}
+                onClick={onClick}
+                onMouseEnter={(e) => ((e.currentTarget.style.backgroundColor = "#6ee7e9"))}
+                onMouseLeave={(e) => ((e.currentTarget.style.backgroundColor = BRAND))}
+              >
                 Abrir chat
               </button>
               <button className="inline-flex h-9 px-3 rounded-lg text-sm bg-white border border-slate-300 hover:bg-slate-50" onClick={onClose}>
@@ -53,7 +63,6 @@ export default function IncidenciaNotifier({
   const rol = (me?.rol || "USUARIO").toUpperCase();
   const isUser = rol === "USUARIO";
 
-  // keys por usuario/rol (evita mezclar sesiones)
   const LS_LAST      = `incfeed.last_id.v3:${myUser}:${rol}`;
   const LS_PRIMED_AT = `incfeed.primed_at.v3:${myUser}:${rol}`;
   const LS_LEADER    = `incfeed.leader.v1:${myUser}:${rol}`;
@@ -108,7 +117,6 @@ export default function IncidenciaNotifier({
   const isLeaderRef = useRef<boolean>(false);
   const bcRef       = useRef<BroadcastChannel | null>(null);
 
-  // Prime: no mostrar histórico
   const prime = useCallback(async () => {
     if (primed()) return;
     const r = await fetchUpdates(undefined);
@@ -118,7 +126,6 @@ export default function IncidenciaNotifier({
     bcRef.current?.postMessage({ type: "prime", last_id: lastIdRef.current } as BroadcastMsg);
   }, []);
 
-  // Elegir item relevante según rol
   const pickItemForMe = useCallback((items: UpdateItem[]) => {
     for (const it of items) {
       if (typeof it.msg_id === "number" && it.msg_id <= (lastIdRef.current || 0)) continue;
@@ -152,7 +159,6 @@ export default function IncidenciaNotifier({
     }
   }, [pickItemForMe]);
 
-  // Poll (solo si soy líder)
   const tick = useCallback(async () => {
     if (!isLeaderRef.current) return;
     if (busyRef.current) return;

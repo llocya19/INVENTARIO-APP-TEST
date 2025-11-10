@@ -1,4 +1,3 @@
-// frontend/src/pages/IncidenciasAdmin.tsx
 import { useEffect, useMemo, useState } from "react";
 import {
   listarIncidencias,
@@ -32,8 +31,7 @@ function BadgeEstado({ value }: { value?: string }) {
   const map: Record<string, string> = {
     ABIERTA: "bg-rose-100 text-rose-700",
     EN_PROCESO: "bg-amber-100 text-amber-800",
-    // turquesa para CERRADA
-    CERRADA: "bg-[#E6FEFF] text-slate-800",
+    CERRADA: "bg-[#E6FEFF] text-slate-800", // turquesa
   };
   const cls = map[v] || "bg-slate-100 text-slate-700";
   return <span className={`text-[11px] px-2 py-0.5 rounded-full ${cls}`}>{v || "—"}</span>;
@@ -111,13 +109,13 @@ export default function IncidenciasAdmin() {
     }
   }
 
-  // === Escucha evento global para refrescar el hilo si está abierto ===
+  // refrescar hilo abierto ante nuevos mensajes
   useEffect(() => {
     const handler = (ev: Event) => {
       const e = ev as CustomEvent<{ inc_id: number }>;
       if (!show || !sel) return;
       if (e.detail?.inc_id === sel.inc_id) {
-        openDetail(sel.inc_id); // recarga mensajes del hilo abierto
+        openDetail(sel.inc_id);
       }
     };
     window.addEventListener("inc:new_msg", handler as EventListener);
@@ -263,10 +261,10 @@ export default function IncidenciasAdmin() {
           onAssignUsername={setAssignUsername}
           onClose={() => setShow(false)}
           onRefresh={load}
+          onRefetchDetail={() => openDetail(sel.inc_id)}
         />
       )}
 
-      {/* Notificador global: muestra burbuja y abre el hilo al tocar */}
       <IncidenciaNotifier onOpenIncidencia={(id) => openDetail(id)} />
     </div>
   );
@@ -284,6 +282,7 @@ function IncidenciaDetail({
   onAssignUsername,
   onClose,
   onRefresh,
+  onRefetchDetail, // ⬅ nuevo: recargar detalle tras asignar
 }: {
   inc: Incidencia & { mensajes: any[] };
   isAdmin: boolean;
@@ -293,6 +292,7 @@ function IncidenciaDetail({
   onAssignUsername: (v: string) => void;
   onClose: () => void;
   onRefresh: () => void;
+  onRefetchDetail: () => void;
 }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -304,6 +304,7 @@ function IncidenciaDetail({
     try {
       await asignarPracticante(inc.inc_id, assignUsername);
       await onRefresh();
+      await onRefetchDetail(); // ⬅ asegura ver EN_PROCESO en el modal
       setMsg("Asignado");
     } catch (e: any) {
       setMsg(e?.response?.data?.error || "No se pudo asignar");
@@ -315,6 +316,7 @@ function IncidenciaDetail({
     try {
       await cambiarEstado(inc.inc_id, e);
       await onRefresh();
+      await onRefetchDetail();
       setMsg("Estado actualizado");
     } catch (er: any) {
       setMsg(er?.response?.data?.error || "No se pudo cambiar estado");
@@ -331,8 +333,8 @@ function IncidenciaDetail({
       setNote("");
       setSoloStaff(false);
       await onRefresh();
+      await onRefetchDetail();
       setMsg("Mensaje agregado");
-      // Emite evento para que otras vistas refresquen si tienen ese hilo abierto
       window.dispatchEvent(
         new CustomEvent("inc:new_msg", {
           detail: { inc_id: inc.inc_id, created_at: new Date().toISOString() },
@@ -342,6 +344,13 @@ function IncidenciaDetail({
       setMsg(er?.response?.data?.error || "No se pudo agregar mensaje");
     }
   }
+
+  // 🔒 Lógica de botones de Estado:
+  // - Si la incidencia está EN_PROCESO (típico luego de asignar), mostrar SOLO "CERRADA".
+  // - Si ya está CERRADA, no mostrar acciones.
+  // - Si está ABIERTA (aún sin asignar), admin puede mover a EN_PROCESO o cerrar; practicante no.
+  const canOnlyClose = inc.estado === "EN_PROCESO";
+  const isClosed = inc.estado === "CERRADA";
 
   return (
     <div className="fixed inset-0 z-50">
@@ -378,6 +387,7 @@ function IncidenciaDetail({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Asignación visible solo a Admin */}
               {isAdmin && (
                 <div className="rounded-xl ring-1 ring-slate-200 p-3">
                   <div className="text-sm text-slate-600 mb-1">Asignar a practicante</div>
@@ -401,27 +411,38 @@ function IncidenciaDetail({
                 </div>
               )}
 
+              {/* Estado */}
               <div className="rounded-xl ring-1 ring-slate-200 p-3">
                 <div className="text-sm text-slate-600 mb-1">Estado</div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {isAdmin && (
-                    <button onClick={() => setEstadoBtn("ABIERTA")} className={btnBase}>
-                      ABIERTA
-                    </button>
-                  )}
-                  <button onClick={() => setEstadoBtn("EN_PROCESO")} className={btnBase}>
-                    EN_PROCESO
-                  </button>
-                  {isAdmin ? (
+
+                {isClosed ? (
+                  <div className="text-xs text-slate-500">Incidencia cerrada.</div>
+                ) : canOnlyClose ? (
+                  // EN_PROCESO → solo se permite CERRAR (admin o practicante)
+                  <div className="flex items-center gap-2">
                     <button onClick={() => setEstadoBtn("CERRADA")} className={btnBase}>
                       CERRADA
                     </button>
-                  ) : (
-                    <button className={`${btnBase} opacity-50 cursor-not-allowed`} title="Solo Admin">
-                      CERRADA
-                    </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  // ABIERTA (aún sin asignar): admin puede mover; practicante no
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isAdmin && (
+                      <>
+                        <button onClick={() => setEstadoBtn("EN_PROCESO")} className={btnBase}>
+                          EN_PROCESO
+                        </button>
+                        <button onClick={() => setEstadoBtn("CERRADA")} className={btnBase}>
+                          CERRADA
+                        </button>
+                      </>
+                    )}
+                    {!isAdmin && (
+                      <span className="text-xs text-slate-500">Pendiente de asignación.</span>
+                    )}
+                  </div>
+                )}
+
                 <div className="text-xs text-slate-500 mt-1">
                   * Una vez CERRADA, ya no se puede modificar.
                 </div>
