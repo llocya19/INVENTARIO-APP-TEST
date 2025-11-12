@@ -35,6 +35,15 @@ def _get_user_id(cur, username: str) -> Optional[int]:
     r = cur.fetchone()
     return int(r[0]) if r else None
 
+def _get_admin_emails(cur) -> List[str]:
+    cur.execute("""
+      SELECT u.usuario_email
+      FROM inv.usuarios u
+      JOIN inv.roles r ON r.rol_id = u.rol_id
+      WHERE UPPER(r.rol_nombre)='ADMIN' AND u.usuario_email IS NOT NULL AND u.usuario_email <> ''
+    """)
+    return [row[0] for row in cur.fetchall()]
+
 def _get_equipo_area(cur, equipo_id: Optional[int]) -> tuple[Optional[str], Optional[int], Optional[str]]:
     if equipo_id is None:
         return None, None, None
@@ -47,7 +56,47 @@ def _get_equipo_area(cur, equipo_id: Optional[int]) -> tuple[Optional[str], Opti
     r = cur.fetchone()
     return (r[0], r[1], r[2]) if r else (None, None, None)
 
-# ============ Crear incidencia (emite NEW_INC para STAFF) ============
+def _get_inc_header(cur, inc_id: int) -> Optional[Dict[str, Any]]:
+    """Obtiene info básica de la incidencia para armar correos."""
+    cur.execute("""
+      SELECT i.inc_id, i.titulo, i.descripcion, i.estado,
+             i.reportado_por, i.asignado_a,
+             COALESCE(e.equipo_codigo,''), COALESCE(a.area_nombre,''), i.created_at
+      FROM inv.incidencias i
+      LEFT JOIN inv.equipos e ON e.equipo_id = i.equipo_id
+      LEFT JOIN inv.areas  a  ON a.area_id   = i.area_id
+      WHERE i.inc_id=%s
+    """, (inc_id,))
+    r = cur.fetchone()
+    if not r:
+        return None
+    return {
+        "inc_id": r[0],
+        "titulo": r[1],
+        "descripcion": r[2],
+        "estado": r[3],
+        "reportado_por": r[4],
+        "asignado_a": r[5],
+        "equipo_codigo": r[6],
+        "area_nombre": r[7],
+        "created_at": r[8],
+    }
+
+def _dedup_valid(emails: List[Optional[str]], exclude: Optional[str] = None) -> List[str]:
+    seen, out = set(), []
+    ex = (exclude or "").strip().lower()
+    for e in emails:
+        if not e:
+            continue
+        ee = e.strip()
+        if not ee or ee.lower() == ex:
+            continue
+        if ee not in seen:
+            seen.add(ee)
+            out.append(ee)
+    return out
+
+# ============ Crear incidencia (emite NEW_INC para STAFF + correo a admins) ============
 
 def create_incidencia(app_user: str, titulo: str, descripcion: str,
                       equipo_id: Optional[int] = None,
@@ -77,28 +126,39 @@ def create_incidencia(app_user: str, titulo: str, descripcion: str,
             """, (equipo_id, area_id, app_user, titulo, descripcion))
             inc_id = int(cur.fetchone()[0])
 
-            # Notificación STAFF para admin/practicantes
+            # Notificación STAFF interna (NEW_INC)
             cur.execute("""
                 INSERT INTO inv.incidencia_mensajes(inc_id, mensaje, usuario, visibilidad, tipo)
                 VALUES (%s, %s, %s, 'STAFF', 'NEW_INC')
             """, (inc_id, f"Nueva incidencia creada por {app_user}", 'sistema'))
 
+            # Correo a Admins (Reply-To del reportante)
             cuerpo = [
                 f"Incidencia #{inc_id}",
                 f"Título: {titulo}",
                 f"Descripción:\n{descripcion}",
                 "",
                 f"Reportado por: {app_user}",
-                f"Email: {reportado_email or 'no provisto'}"
+                f"Email: {reportado_email or _get_user_email(cur, app_user) or 'no provisto'}"
             ]
             if equipo_codigo: cuerpo.append(f"Equipo: {equipo_codigo}")
             if area_nombre_equipo: cuerpo.append(f"Área: {area_nombre_equipo}")
 
+            admins = _get_admin_emails(cur)
+            to_list = _dedup_valid(admins)
+
             send_mail_safe(
                 subject=f"[INCIDENCIA #{inc_id}] {titulo}",
                 body="\n".join(cuerpo),
-                to=None,
-                reply_to=reportado_email or None,
+                to=to_list or None,
+                reply_to=(reportado_email or _get_user_email(cur, app_user) or None),
+                from_name_extra=app_user,
+                enrich_subject_with_reporter=app_user,
+                extra_headers={
+                    "X-System": "Incidents",
+                    "X-Inc-ID": str(inc_id),
+                    "X-Event": "NEW_INC",
+                },
             )
             return inc_id, None
         except Exception as e:
@@ -236,7 +296,7 @@ def get_incidencia(app_user: str, inc_id: int) -> Optional[Dict[str, Any]]:
         "asignado_a": h[10], "mensajes": mensajes,
     }
 
-# =================== Mensajería ===================
+# =================== Mensajería (con correo inmediato) ===================
 
 def add_mensaje(app_user: str, inc_id: int, cuerpo: str, solo_staff: bool=False) -> Tuple[Optional[int], Optional[str]]:
     with get_conn(app_user) as (conn, cur):
@@ -248,7 +308,57 @@ def add_mensaje(app_user: str, inc_id: int, cuerpo: str, solo_staff: bool=False)
                 VALUES (%s, %s, %s, %s, 'MSG')
                 RETURNING msg_id
             """, (inc_id, cuerpo, app_user, vis))
-            return int(cur.fetchone()[0]), None
+            msg_id = int(cur.fetchone()[0])
+
+            # ---- Correo ----
+            hdr = _get_inc_header(cur, inc_id)
+            if hdr:
+                titulo = hdr["titulo"]
+                reportado_por = hdr["reportado_por"]
+                asignado_a    = hdr["asignado_a"]
+                equipo_codigo = hdr["equipo_codigo"]
+                area_nombre   = hdr["area_nombre"]
+
+                sender_email  = _get_user_email(cur, app_user)
+                owner_email   = _get_user_email(cur, reportado_por) if reportado_por else None
+                pract_email   = _get_user_email(cur, asignado_a) if asignado_a else None
+                admin_emails  = _get_admin_emails(cur)
+
+                if solo_staff:
+                    # Solo staff (asignado + admins)
+                    to_list = _dedup_valid([pract_email] + admin_emails, exclude=sender_email)
+                else:
+                    # Público: dueño + staff + admins
+                    to_list = _dedup_valid([owner_email, pract_email] + admin_emails, exclude=sender_email)
+
+                if to_list:
+                    subject = f"[INCIDENCIA #{inc_id}] Nueva respuesta: {titulo}"
+                    body_lines = [
+                        f"Incidencia #{inc_id} · {titulo}",
+                        f"Área: {area_nombre or '—'} · Equipo: {equipo_codigo or '—'}",
+                        f"Estado actual: {hdr['estado']}",
+                        "",
+                        f"{app_user} escribió:",
+                        cuerpo,
+                        "",
+                        "—",
+                        "Este es un aviso automático del sistema de incidencias."
+                    ]
+                    send_mail_safe(
+                        subject=subject,
+                        body="\n".join(body_lines),
+                        to=to_list,
+                        reply_to=(sender_email or None),
+                        from_name_extra=app_user,
+                        enrich_subject_with_reporter=app_user,
+                        extra_headers={
+                            "X-System": "Incidents",
+                            "X-Inc-ID": str(inc_id),
+                            "X-Event": "NEW_MSG" if not solo_staff else "NEW_MSG_STAFF",
+                        },
+                    )
+
+            return msg_id, None
         except Exception as e:
             conn.rollback()
             return None, f"No se pudo agregar el mensaje: {e}"
@@ -266,6 +376,38 @@ def asignar_incidencia(app_user: str, inc_id: int, username: str) -> Optional[st
                 INSERT INTO inv.incidencia_mensajes(inc_id, mensaje, usuario, visibilidad, tipo)
                 VALUES (%s, %s, %s, 'STAFF', 'ASSIGNED')
             """, (inc_id, f"Incidencia asignada a {username}", app_user))
+
+            # ---- Correo a practicante asignado + admins ----
+            hdr = _get_inc_header(cur, inc_id)
+            if hdr:
+                titulo = hdr["titulo"]
+                pract_email = _get_user_email(cur, username)
+                admin_emails = _get_admin_emails(cur)
+                to_list = _dedup_valid([pract_email] + admin_emails, exclude=None)
+                if to_list:
+                    subject = f"[INCIDENCIA #{inc_id}] Asignada: {titulo}"
+                    body = "\n".join([
+                        f"Te asignaron la incidencia #{inc_id}: {titulo}",
+                        f"Reportado por: {hdr['reportado_por']}",
+                        f"Área: {hdr['area_nombre'] or '—'} · Equipo: {hdr['equipo_codigo'] or '—'}",
+                        "",
+                        "—",
+                        "Este es un aviso automático del sistema de incidencias."
+                    ])
+                    send_mail_safe(
+                        subject=subject,
+                        body=body,
+                        to=to_list,
+                        reply_to=None,
+                        from_name_extra=app_user,
+                        enrich_subject_with_reporter=app_user,
+                        extra_headers={
+                            "X-System": "Incidents",
+                            "X-Inc-ID": str(inc_id),
+                            "X-Event": "ASSIGNED",
+                        },
+                    )
+
             return None
         except Exception as e:
             conn.rollback()
@@ -280,7 +422,44 @@ def set_estado(app_user: str, inc_id: int, estado: str) -> Optional[str]:
             rol = _get_user_role(cur, app_user)
             if _role_norm(rol) == "PRACTICANTE" and estado == "CERRADA":
                 return "Solo ADMIN puede cerrar incidencias"
+
             cur.execute("UPDATE inv.incidencias SET estado=%s WHERE inc_id=%s", (estado, inc_id))
+
+            # ---- Correo al cerrar ----
+            if estado == "CERRADA":
+                hdr = _get_inc_header(cur, inc_id)
+                if hdr:
+                    titulo = hdr["titulo"]
+                    owner_email = _get_user_email(cur, hdr["reportado_por"])
+                    pract_email = _get_user_email(cur, hdr["asignado_a"]) if hdr["asignado_a"] else None
+                    admin_emails = _get_admin_emails(cur)
+                    to_list = _dedup_valid([owner_email, pract_email] + admin_emails)
+                    if to_list:
+                        subject = f"[INCIDENCIA #{inc_id}] Cerrada: {titulo}"
+                        body = "\n".join([
+                            f"La incidencia #{inc_id} ha sido CERRADA.",
+                            f"Título: {titulo}",
+                            f"Área: {hdr['area_nombre'] or '—'} · Equipo: {hdr['equipo_codigo'] or '—'}",
+                            "",
+                            f"Cerrado por: {app_user}",
+                            "",
+                            "—",
+                            "Este es un aviso automático del sistema de incidencias."
+                        ])
+                        send_mail_safe(
+                            subject=subject,
+                            body=body,
+                            to=to_list,
+                            reply_to=_get_user_email(cur, app_user) or None,
+                            from_name_extra=app_user,
+                            enrich_subject_with_reporter=app_user,
+                            extra_headers={
+                                "X-System": "Incidents",
+                                "X-Inc-ID": str(inc_id),
+                                "X-Event": "CLOSED",
+                            },
+                        )
+
             return None
         except Exception as e:
             conn.rollback()

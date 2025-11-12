@@ -12,34 +12,53 @@ def _where_and_params_mov(
     equipo_id: Optional[int],
     area_id: Optional[int],
 ) -> Tuple[str, List[Any]]:
+    """
+    Construye WHERE y params para inv.movimientos (fuente MOV),
+    mapeando correctamente:
+      - PRESTAMO: TRASLADO con detalle.es_prestamo = true
+      - RETORNO : TRASLADO con detalle.devolucion = true
+      - USO/ALMACEN/MANTENIMIENTO/BAJA: también acepta EQUIPO_ESTADO(after = tipo)
+    Nota: REPARACION no se filtra aquí (se trata como caso especial).
+    """
     sql = ""
     params: List[Any] = []
 
-    if tipo:
-        sql += " AND m.mov_tipo = %s"
-        params.append(tipo)
-
+    # Fechas / ids
     if desde:
-        sql += " AND m.mov_fecha::date >= %s::date"
-        params.append(desde)
-
+        sql += " AND m.mov_fecha::date >= %s::date"; params.append(desde)
     if hasta:
-        sql += " AND m.mov_fecha::date <= %s::date"
-        params.append(hasta)
-
+        sql += " AND m.mov_fecha::date <= %s::date"; params.append(hasta)
     if item_id:
-        sql += " AND m.mov_item_id = %s"
-        params.append(int(item_id))
-
+        sql += " AND m.mov_item_id = %s"; params.append(int(item_id))
     if equipo_id:
-        sql += " AND m.mov_equipo_id = %s"
-        params.append(int(equipo_id))
-
+        sql += " AND m.mov_equipo_id = %s"; params.append(int(equipo_id))
     if area_id:
         sql += " AND (m.mov_origen_area_id = %s OR m.mov_destino_area_id = %s)"
         params.extend([int(area_id), int(area_id)])
 
+    # Tipo “inteligente”
+    if tipo:
+        t = (tipo or "").upper()
+
+        # Préstamo / Retorno: TRASLADO con flags en detalle
+        if t == "PRESTAMO":
+            sql += " AND m.mov_tipo='TRASLADO' AND COALESCE((m.mov_detalle->>'es_prestamo')::boolean,false)=true"
+        elif t == "RETORNO":
+            sql += " AND m.mov_tipo='TRASLADO' AND COALESCE((m.mov_detalle->>'devolucion')::boolean,false)=true"
+
+        # Estados de equipo: aceptar registros EQUIPO_ESTADO(after=t) además del literal
+        elif t in ("USO", "ALMACEN", "MANTENIMIENTO", "BAJA"):
+            sql += " AND ( (m.mov_tipo=%s) OR (m.mov_tipo='EQUIPO_ESTADO' AND (m.mov_detalle->>'after')=%s) )"
+            params.extend([t, t])
+
+        # Cualquier otro (excepto REPARACION, que es especial)
+        elif t != "REPARACION":
+            sql += " AND m.mov_tipo = %s"
+            params.append(t)
+
+    # Búsqueda libre
     if q:
+        like = f"%{q}%"
         sql += """
           AND (
                 i.item_codigo ILIKE %s
@@ -51,7 +70,6 @@ def _where_and_params_mov(
             OR  m.mov_detalle::text ILIKE %s
           )
         """
-        like = f"%{q}%"
         params.extend([like, like, like, like, like, like, like])
 
     return sql, params
@@ -75,7 +93,7 @@ def _where_and_params_audit(
 
     if q:
         like = f"%{q}%"
-        # Cast de entidad_id a texto para evitar problemas de tipos con ILIKE
+        # Cast de entidad_id a texto para evitar problemas con ILIKE
         sql += """
           AND (
                a.actor_user ILIKE %s
@@ -111,13 +129,13 @@ def list_auditoria_flexible(
     - inv.audit_log   (cuando fuente=AUDIT)
     - UNION ALL de ambos (cuando fuente=MIX)
 
-    Estructura de salida compatible con tu tabla actual.
+    Estructura de salida compatible con la grilla actual.
     """
     p = max(1, int(page or 1))
     s = min(200, max(1, int(size or 20)))
     off = (p - 1) * s
 
-    # ----- SELECT MOV -----
+    # ----- SELECT MOV (base) -----
     sql_mov_base = """
       SELECT
         m.mov_id,                  -- 0
@@ -146,11 +164,78 @@ def list_auditoria_flexible(
       LEFT JOIN inv.equipos     e  ON e.equipo_id = m.mov_equipo_id
       WHERE 1=1
     """
+
     mov_where, mov_params = _where_and_params_mov(tipo, desde, hasta, q, item_id, equipo_id, area_id)
-    sql_mov = sql_mov_base + mov_where
+
+    # --- REPARACION: sintetiza eventos por ciclo USO -> MANTENIMIENTO -> USO ---
+    if (tipo or "").upper() == "REPARACION":
+        rep_filters = []
+        rep_params: List[Any] = []
+
+        if desde:
+            rep_filters.append("s.mov_fecha::date >= %s::date"); rep_params.append(desde)
+        if hasta:
+            rep_filters.append("s.mov_fecha::date <= %s::date"); rep_params.append(hasta)
+        if equipo_id:
+            rep_filters.append("s.mov_equipo_id = %s"); rep_params.append(int(equipo_id))
+        if area_id:
+            rep_filters.append("s.equipo_area_id = %s"); rep_params.append(int(area_id))
+        if q:
+            like = f"%{q}%"
+            rep_filters.append("(s.equipo_codigo ILIKE %s OR s.equipo_nombre ILIKE %s)")
+            rep_params.extend([like, like])
+
+        sql_mov = f"""
+          WITH estados AS (
+            SELECT
+              m.mov_id,
+              m.mov_fecha,
+              m.mov_equipo_id,
+              e.equipo_codigo,
+              e.equipo_nombre,
+              e.equipo_area_id,
+              (m.mov_detalle->>'before')::text AS before,
+              (m.mov_detalle->>'after')::text  AS after,
+              LAG( (m.mov_detalle->>'after')::text )
+                  OVER (PARTITION BY m.mov_equipo_id ORDER BY m.mov_fecha, m.mov_id) AS prev_after,
+              LEAD( (m.mov_detalle->>'after')::text )
+                  OVER (PARTITION BY m.mov_equipo_id ORDER BY m.mov_fecha, m.mov_id) AS next_after
+            FROM inv.movimientos m
+            JOIN inv.equipos e ON e.equipo_id = m.mov_equipo_id
+            WHERE m.mov_tipo = 'EQUIPO_ESTADO'
+          )
+          SELECT
+            s.mov_id,                           -- 0
+            NULL::bigint AS mov_item_id,        -- 1
+            NULL::text   AS item_codigo,        -- 2
+            NULL::text   AS clase,              -- 3
+            NULL::text   AS item_tipo,          -- 4
+            'REPARACION'::text AS mov_tipo,     -- 5
+            s.mov_fecha,                        -- 6 (entrada a mantenimiento)
+            NULL::bigint AS mov_origen_area_id, -- 7
+            NULL::text   AS origen_area_nombre, -- 8
+            NULL::bigint AS mov_destino_area_id,-- 9
+            NULL::text   AS destino_area_nombre,--10
+            s.mov_equipo_id,                    --11
+            s.equipo_codigo,                    --12
+            s.equipo_nombre,                    --13
+            NULL::text   AS mov_usuario_app,    --14
+            'ciclo_uso_mant_uso'::text AS mov_motivo, --15
+            jsonb_build_object(
+              'ciclo', 'USO->MANTENIMIENTO->USO',
+              'before', s.before,
+              'after',  s.after
+            ) AS mov_detalle,                   --16
+            false AS es_audit                   --17
+          FROM estados s
+          WHERE s.after='MANTENIMIENTO' AND s.prev_after='USO' AND s.next_after='USO'
+          {("AND " + " AND ".join(rep_filters)) if rep_filters else ""}
+        """
+        mov_params = rep_params  # importante: usar los params del caso especial
+    else:
+        sql_mov = sql_mov_base + mov_where
 
     # ----- SELECT AUDIT -----
-    # Mapeamos columnas a la misma forma de la grilla
     sql_audit_base = """
       SELECT
         a.audit_id      AS mov_id,             -- 0
@@ -189,34 +274,28 @@ def list_auditoria_flexible(
         total = 0
 
         if fuente == "MOV":
-            # total
             cur.execute("SELECT COUNT(1) FROM (" + sql_mov + ") x", mov_params)
             total = int(cur.fetchone()[0] or 0)
 
-            # page
-            sql_page = sql_mov + " ORDER BY m.mov_fecha DESC, m.mov_id DESC LIMIT %s OFFSET %s"
+            sql_page = sql_mov + " ORDER BY mov_fecha DESC, mov_id DESC LIMIT %s OFFSET %s"
             cur.execute(sql_page, mov_params + [s, off])
             rows = cur.fetchall()
 
         elif fuente == "AUDIT":
-            # total
             cur.execute("SELECT COUNT(1) FROM (" + sql_audit + ") x", audit_params)
             total = int(cur.fetchone()[0] or 0)
 
-            # page
             sql_page = sql_audit + " ORDER BY a.created_at DESC, a.audit_id DESC LIMIT %s OFFSET %s"
             cur.execute(sql_page, audit_params + [s, off])
             rows = cur.fetchall()
 
         else:  # MIX
-            # total
             cur.execute(
                 "SELECT COUNT(1) FROM (" + f"({sql_mov}) UNION ALL ({sql_audit})" + ") z",
                 mov_params + audit_params
             )
             total = int(cur.fetchone()[0] or 0)
 
-            # page
             sql_union = f"({sql_mov}) UNION ALL ({sql_audit})"
             sql_page = sql_union + " ORDER BY mov_fecha DESC, mov_id DESC LIMIT %s OFFSET %s"
             cur.execute(sql_page, mov_params + audit_params + [s, off])
@@ -247,7 +326,7 @@ def list_auditoria_flexible(
     return {"items": items, "total": int(total or 0), "page": p, "size": s}
 
 
-# ====== versión anterior (solo MOV) por compatibilidad si la llamas en otro lado ======
+# ====== wrapper de compatibilidad (solo MOV) ======
 def list_movimientos(
     app_user: str,
     page: int = 1,

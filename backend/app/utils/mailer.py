@@ -8,21 +8,19 @@ from typing import Iterable, Optional, Dict, Any
 
 MAIL_HOST = os.getenv("MAIL_HOST", "smtp.gmail.com")
 MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
-
 MAIL_USER = os.getenv("MAIL_USERNAME") or os.getenv("MAIL_USER")
 MAIL_PASS = os.getenv("MAIL_PASSWORD") or os.getenv("MAIL_PASS")
-
-MAIL_FROM = os.getenv("MAIL_FROM") or os.getenv("FROM_EMAIL") or MAIL_USER
+MAIL_FROM = os.getenv("MAIL_FROM") or os.getenv("FROM_EMAIL") or (MAIL_USER or "")
 MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "Soporte TI")
+ADMIN_TO = os.getenv("MAIL_ADMIN_TO") or os.getenv("ADMIN_EMAIL") or MAIL_FROM
 
-# Destinatario por defecto (admin)
-ADMIN_TO  = os.getenv("MAIL_ADMIN_TO") or os.getenv("ADMIN_EMAIL") or MAIL_FROM
+MAIL_USE_SSL = os.getenv("MAIL_USE_SSL", "false").lower() in ("1", "true", "yes")
+MAIL_DEBUG = int(os.getenv("MAIL_DEBUG", "0"))
+MAIL_CA_BUNDLE = os.getenv("MAIL_CA_BUNDLE")  # ruta a .pem
+MAIL_TLS_INSECURE = os.getenv("MAIL_TLS_INSECURE", "false").lower() in ("1", "true", "yes")
 
 def _is_valid_email(s: Optional[str]) -> bool:
-    if not s:
-        return False
-    s = s.strip()
-    return "@" in s and "." in s and " " not in s and "<" not in s and ">" not in s
+    return bool(s and "@" in s and "." in s and " " not in s and "<" not in s and ">" not in s)
 
 def _as_list(addr: Optional[Iterable[str] | str]) -> list[str]:
     if not addr:
@@ -44,11 +42,7 @@ def _build_message(
 ) -> EmailMessage:
     msg = EmailMessage()
     msg["Subject"] = subject
-
-    # From con nombre amigable (opcionalmente añade “(reportado por X)”)
-    from_display = MAIL_FROM_NAME
-    if from_name_extra:
-        from_display = f"{MAIL_FROM_NAME} ({from_name_extra})"
+    from_display = MAIL_FROM_NAME if not from_name_extra else f"{MAIL_FROM_NAME} ({from_name_extra})"
     msg["From"] = formataddr((from_display, MAIL_FROM))
 
     to_list = _as_list(to)
@@ -59,12 +53,8 @@ def _build_message(
         msg["To"] = ", ".join(to_list)
     if cc_list:
         msg["Cc"] = ", ".join(cc_list)
-
-    # Reply-To (clave para que al responder vaya al correo del usuario)
     if _is_valid_email(reply_to):
         msg["Reply-To"] = reply_to
-
-    # Cabeceras extra (útiles en Gmail “mostrar detalles”)
     if extra_headers:
         for k, v in extra_headers.items():
             if v is not None:
@@ -72,11 +62,32 @@ def _build_message(
 
     msg.set_content(body)
 
-    # Guardamos BCC para usarlo al enviar (no se añade header)
     if bcc_list:
         msg._bcc = bcc_list  # type: ignore[attr-defined]
-
     return msg
+
+def _make_ssl_context() -> ssl.SSLContext:
+    # 1) Intentar usar un CA bundle explícito (antivirus/proxy corporativo)
+    if MAIL_CA_BUNDLE and os.path.exists(MAIL_CA_BUNDLE):
+        ctx = ssl.create_default_context(cafile=MAIL_CA_BUNDLE)
+    else:
+        # 2) Usar certifi (trae CA actualizadas)
+        try:
+            import certifi
+            ctx = ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            # 3) Fallback al sistema
+            ctx = ssl.create_default_context()
+
+    # Diagnóstico local (NO en prod)
+    if MAIL_TLS_INSECURE:
+        print("[mailer] AVISO: TLS INSEGURO ACTIVADO (solo diagnóstico local).")
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+    # Opcional endurecer:
+    # ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    return ctx
 
 def send_mail_safe(
     subject: str,
@@ -88,19 +99,8 @@ def send_mail_safe(
     bcc: Optional[Iterable[str] | str] = None,
     from_name_extra: Optional[str] = None,
     extra_headers: Optional[Dict[str, Any]] = None,
-    enrich_subject_with_reporter: Optional[str] = None,  # ej. username
+    enrich_subject_with_reporter: Optional[str] = None,
 ) -> bool:
-    """
-    Envía correo vía SMTP STARTTLS.
-      - to: destinatarios principales (si None -> ADMIN_TO)
-      - reply_to: correo al que se responderá (usuario reportante)
-      - cc / bcc: copias
-      - from_name_extra: añade “(reportado por X)” al nombre del remitente
-      - extra_headers: cabeceras personalizadas
-      - enrich_subject_with_reporter: añade “ · por <username>” al asunto
-
-    Devuelve True si parece OK; False si falla (no interrumpe la app).
-    """
     dest = _as_list(to) or _as_list(ADMIN_TO)
     cc_list = _as_list(cc)
     bcc_list = _as_list(bcc)
@@ -113,26 +113,28 @@ def send_mail_safe(
         return False
 
     try:
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP(MAIL_HOST, MAIL_PORT, timeout=20) as s:
-            s.ehlo()
-            s.starttls(context=ctx)
-            s.ehlo()
-            s.login(MAIL_USER, MAIL_PASS)
-
-            msg = _build_message(
-                subject=subject,
-                body=body,
-                to=dest,
-                reply_to=reply_to,
-                cc=cc_list,
-                bcc=bcc_list,
-                from_name_extra=from_name_extra,
-                extra_headers=extra_headers,
-            )
-
-            all_rcpt = dest + cc_list + getattr(msg, "_bcc", [])
-            s.send_message(msg, from_addr=MAIL_FROM, to_addrs=all_rcpt)
+        ctx = _make_ssl_context()
+        if MAIL_USE_SSL:
+            with smtplib.SMTP_SSL(MAIL_HOST, MAIL_PORT, timeout=25, context=ctx) as s:
+                s.set_debuglevel(MAIL_DEBUG)
+                s.login(MAIL_USER, MAIL_PASS)
+                msg = _build_message(subject, body, dest,
+                                     reply_to=reply_to, cc=cc_list, bcc=bcc_list,
+                                     from_name_extra=from_name_extra, extra_headers=extra_headers)
+                all_rcpt = dest + cc_list + getattr(msg, "_bcc", [])
+                s.send_message(msg, from_addr=MAIL_FROM, to_addrs=all_rcpt)
+        else:
+            with smtplib.SMTP(MAIL_HOST, MAIL_PORT, timeout=25) as s:
+                s.set_debuglevel(MAIL_DEBUG)
+                s.ehlo()
+                s.starttls(context=ctx)
+                s.ehlo()
+                s.login(MAIL_USER, MAIL_PASS)
+                msg = _build_message(subject, body, dest,
+                                     reply_to=reply_to, cc=cc_list, bcc=bcc_list,
+                                     from_name_extra=from_name_extra, extra_headers=extra_headers)
+                all_rcpt = dest + cc_list + getattr(msg, "_bcc", [])
+                s.send_message(msg, from_addr=MAIL_FROM, to_addrs=all_rcpt)
         return True
     except Exception as e:
         print(f"[mailer] error enviando correo: {e}")
